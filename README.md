@@ -29,3 +29,7 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
         "-finput-charset=UTF-8",//指定输入的文件格式
     ],
 ```
+## Visual Studio配置环境
+将下载好的include文件放入您的项目文件夹后
+在项目=>属性=>C/C++=>命令行中添加/utf-8，并在高级文件保存中设置文件保存格式为Unicode(UTF-8 无签名)
+（或把所有库文件改成GBK格式）
