@@ -8,11 +8,11 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
 ```
 请确保你已正确安装[git](https://git-scm.com/)。若未安装，请从官网下载安装包安装即可。
 
-##visual studio code配置环境
+## visual studio code配置环境
 将下载好的include文件放入您的项目文件夹后
 可能需要配置调试环境（这里以g++为例）
 
-打开tasks.json文件,找到"args"（表示编译时的后缀）
+打开tasks.json文件,找到"args"（表示编译时的后缀）:
 ```
     "args": [
         "-fdiagnostics-color=always",//以彩色字符输出警告（非必要）
