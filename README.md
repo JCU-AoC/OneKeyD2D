@@ -66,10 +66,7 @@ xmake create <project_name>
 **新增：**
 
 * 添加Vector命名空间
-    * 包含
-    //为下一版本场景更新做准备
-    * Vector3模板类
-    * Vector2模板类
+    * 包含Vector2模板类和Vector3模板类
 
 * 添加功能
     * SimpleSound类
