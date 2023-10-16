@@ -1,4 +1,4 @@
-English (US) | [简体中文](README.md)
+English (US) | [简体中文](README_CN.md)
 
 > Latest version: 0.11
 
