@@ -4,6 +4,7 @@
 #include"D2Dmacro.hpp"
 #include <iostream>
 
+#pragma comment(lib, "windowscodecs.lib")
 namespace Game
 {
 	namespace WindElements
@@ -24,11 +25,16 @@ namespace Game
 			{
 				return { m_ShowRectangle.right - m_ShowRectangle.left,m_ShowRectangle.bottom - m_ShowRectangle.top };
 			}
-			void SetShowRect(const D2D1_RECT_F& rect)
+			virtual void SetShowRect(const D2D1_RECT_F& rect)
 			{
 				m_ShowRectangle = rect;
 			}
-			void SetPosition(float x, float y)
+			/// <summary>
+			/// 显示区域的x，y
+			/// </summary>
+			/// <param name="x"></param>
+			/// <param name="y"></param>
+			virtual void SetPosition(float x, float y)
 			{
 				float wDifference = x - m_ShowRectangle.left;
 				float hDifference = y - m_ShowRectangle.top;
@@ -37,7 +43,12 @@ namespace Game
 				m_ShowRectangle.right += wDifference;
 				m_ShowRectangle.bottom += hDifference;
 			}
-			void SetShowWide(float width, float height)
+			/// <summary>
+			/// 显示区域的宽度与高度
+			/// </summary>
+			/// <param name="width"></param>
+			/// <param name="height"></param>
+			virtual void SetShowWide(float width, float height)
 			{
 				m_ShowRectangle.bottom = height + m_ShowRectangle.top;
 				m_ShowRectangle.right = width + m_ShowRectangle.left;
@@ -63,7 +74,7 @@ namespace Game
 			{
 				return LoadPictureFromFile(filePath, d2dWind->GetD2DTargetP());
 			}
-			bool LoadPictureFromFile(const std::wstring& filePath, ID2D1HwndRenderTarget* d2dRenderTarget)
+			bool LoadPictureFromFile(const std::wstring& filePath, ID2D1RenderTarget* d2dRenderTarget)
 			{
 				if (filePath.empty() || !d2dRenderTarget)
 					return false;
@@ -140,7 +151,7 @@ namespace Game
 				return true;
 			}
 
-			void SetTransparency(float t)
+			void SetOpacity(float t)
 			{
 				m_Transparency = t;
 			}
@@ -400,11 +411,14 @@ namespace Game
 			D2D1_MATRIX_3X2_F originalTransform;
 
 			ID2D1SolidColorBrush* m_Color;
+			D2D1_ROUNDED_RECT m_Rect;
 
 			float m_PenWide;
 			bool m_Fill;
+			bool m_Round;
 		public:
-			d2dRectangle() :m_Color(nullptr), m_Fill(false), m_PenWide(1), m_Rotation(D2D1::Matrix3x2F::Rotation(0))
+			d2dRectangle() :m_Color(nullptr), m_Fill(false), m_Round(false), 
+				m_PenWide(1), m_Rotation(D2D1::Matrix3x2F::Rotation(0))
 			{
 
 			}
@@ -412,13 +426,49 @@ namespace Game
 			{
 				SafeRelease(&m_Color);
 			}
-			void SetShowRect(const D2D1_RECT_F& rect)
-			{
-				m_ShowRectangle = rect;
-			}
 			void FillRect(bool fill = true)
 			{
-				m_Fill = true;
+				m_Fill = fill;
+			}
+			void Round(bool round = true)
+			{
+				m_Round = round;
+			}
+			void SetRound(float x,float y)
+			{
+				m_Rect.radiusX = x;
+				m_Rect.radiusY = y;
+			}
+			void SetShowRect(const D2D1_RECT_F& rect)override
+			{
+				m_ShowRectangle = rect;
+				m_Rect.rect = rect;
+			}
+			/// <summary>
+			/// 显示区域的x，y
+			/// </summary>
+			/// <param name="x"></param>
+			/// <param name="y"></param>
+			void SetPosition(float x, float y)override
+			{
+				float wDifference = x - m_ShowRectangle.left;
+				float hDifference = y - m_ShowRectangle.top;
+				m_ShowRectangle.left += wDifference;
+				m_ShowRectangle.top += hDifference;
+				m_ShowRectangle.right += wDifference;
+				m_ShowRectangle.bottom += hDifference;
+				m_Rect.rect = m_ShowRectangle;
+			}
+			/// <summary>
+			/// 显示区域的宽度与高度
+			/// </summary>
+			/// <param name="width"></param>
+			/// <param name="height"></param>
+			void SetShowWide(float width, float height)override
+			{
+				m_ShowRectangle.bottom = height + m_ShowRectangle.top;
+				m_ShowRectangle.right = width + m_ShowRectangle.left;
+				m_Rect.rect = m_ShowRectangle;
 			}
 			void SetUnfillRectWide(float penWide)
 			{
@@ -467,9 +517,15 @@ namespace Game
 				d2dRenderTarget->GetTransform(&originalTransform);
 				d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
 				if (m_Fill)
-					d2dRenderTarget->FillRectangle(m_ShowRectangle, m_Color);
+					if (m_Round)
+						d2dRenderTarget->FillRoundedRectangle(m_Rect, m_Color);
+					else
+						d2dRenderTarget->FillRectangle(m_ShowRectangle, m_Color);
 				else
-					d2dRenderTarget->DrawRectangle(m_ShowRectangle, m_Color, m_PenWide);
+					if (m_Round)
+						d2dRenderTarget->DrawRoundedRectangle(m_Rect, m_Color);
+					else
+						d2dRenderTarget->DrawRectangle(m_ShowRectangle, m_Color, m_PenWide);
 				d2dRenderTarget->SetTransform(originalTransform);
 
 				return true;
@@ -584,8 +640,9 @@ namespace Game
 			ID2D1SolidColorBrush* m_Color;
 			ID2D1PathGeometry* pGeometry;
 			ID2D1GeometrySink* pSink;
+			bool m_Fill;
 		public:
-			d2dGeometry():m_Color(nullptr),pSink(nullptr),pGeometry(nullptr){}
+			d2dGeometry() :m_Color(nullptr), pSink(nullptr), pGeometry(nullptr), m_Fill(false) {}
 			~d2dGeometry()
 			{
 				SafeRelease(&m_Color);
@@ -599,6 +656,10 @@ namespace Game
 				HRESULT hr = fac->CreatePathGeometry(&pGeometry);
 				if (FAILED(hr))
 					return false;
+			}
+			void Fill(bool fill = true)
+			{
+				m_Fill = fill;
 			}
 			ID2D1GeometrySink* GetNewSink()
 			{
@@ -644,6 +705,62 @@ namespace Game
 				if (!m_Color || !pGeometry || !wind)
 					return false;
 				wind->DrawGeometry(pGeometry, m_Color);
+				return true;
+			}
+		};
+
+		class d2dElliptic :public d2dElements
+		{
+			D2D1_ELLIPSE m_Ellipse;
+			ID2D1SolidColorBrush* m_Color;
+			float m_Wide;
+			bool m_Fill;
+		public:
+			d2dElliptic() :m_Color(nullptr), m_Ellipse({ {0,0},0,0 }), m_Wide(1), m_Fill(false)
+			{}
+			~d2dElliptic()
+			{
+				SafeRelease(&m_Color);
+			}
+			bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
+			{
+				if (!renderTarget)
+					return false;
+				SafeRelease(&m_Color);
+				if (SUCCEEDED(renderTarget->CreateSolidColorBrush(color, &m_Color)))
+					return true;
+				return false;
+			}
+			void Fill(bool fill = true)
+			{
+				m_Fill = fill;
+			}
+			void SetWide(float wide)
+			{
+				m_Wide = wide;
+			}
+			void SetEllipticalPosition(float x,float y)
+			{
+				m_Ellipse.point.x = x;
+				m_Ellipse.point.y = y;
+			}
+			void SetRadius(float x, float y)
+			{
+				m_Ellipse.radiusX = x;
+				m_Ellipse.radiusY = y;
+			}
+			bool Draw(MainWind_D2D* wind)
+			{
+				return Draw(wind->GetD2DTargetP());
+			}
+			bool Draw(ID2D1RenderTarget* wind)override
+			{
+				if (!m_Color ||!wind)
+					return false;
+				if (m_Fill)
+					wind->FillEllipse(m_Ellipse, m_Color);
+				else
+					wind->DrawEllipse(m_Ellipse, m_Color, m_Wide);
 				return true;
 			}
 		};

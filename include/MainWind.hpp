@@ -353,9 +353,17 @@ namespace Game
 			m_Buttons.insert(db);
 			m_ButtonChange = true;
 		}
-		void DeleteButten(WindElements::d2dClickDetection* db)
+		/// <summary>
+		/// 清除指定检测区块
+		/// 若为空则清空所有
+		/// </summary>
+		/// <param name="db">指定区块指针</param>
+		void DeleteButten(WindElements::d2dClickDetection* db = nullptr)
 		{
-			m_Buttons.erase(db);
+			if (db)
+				m_Buttons.erase(db);
+			else
+				m_Buttons.clear();
 			m_ButtonChange = true;
 		}
 		void SetUserData(LPARAM data)
@@ -440,7 +448,7 @@ namespace Game
 			{
 				return DefWindowProc(hWnd, uMsg, wParam, lParam);
 			}
-			if (uMsg > WM_MOUSEFIRST && uMsg < WM_MOUSELAST||uMsg==WM_MOUSEACTIVATE||uMsg== WM_MOUSELEAVE)
+			if (uMsg >= WM_MOUSEFIRST && uMsg <= WM_MOUSELAST||uMsg==WM_MOUSEACTIVATE||uMsg== WM_MOUSELEAVE)
 			{
 				mainWind->OnMouse(uMsg, LOWORD(lParam), HIWORD(lParam), (int)wParam);
 				return 0;
@@ -795,7 +803,7 @@ namespace Game
 			{
 				return DefWindowProc(hWnd, uMsg, wParam, lParam);
 			}
-			if (uMsg > WM_MOUSEFIRST && uMsg < WM_MOUSELAST || uMsg == WM_MOUSEACTIVATE || uMsg == WM_MOUSELEAVE)
+			if (uMsg >= WM_MOUSEFIRST && uMsg <= WM_MOUSELAST || uMsg == WM_MOUSEACTIVATE || uMsg == WM_MOUSELEAVE)
 			{
 				mainWind->OnMouse(uMsg, LOWORD(lParam), HIWORD(lParam), (int)wParam);
 				return 0;
@@ -1222,4 +1230,69 @@ namespace Game
 	};
 
 
+	///////////////////以下是音频类///////////////////
+
+	/// <summary>
+	/// 仅能播放wav文件
+	/// </summary>
+	class SimpleSound
+	{
+	public:
+		/// <summary>
+		/// 指定播放模式
+		/// </summary>
+		enum PlayMode
+		{
+			/// <summary>
+			/// 异步播放，不会阻塞
+			/// </summary>
+			PM_ASYNC= SND_ASYNC,
+			/// <summary>
+			/// 循环播放
+			/// </summary>
+			PM_LOOP= SND_LOOP,
+
+		};
+		SimpleSound(){}
+		~SimpleSound(){}
+		bool LoadMusicFile(CQSTR filePath)
+		{
+			HANDLE hFile = CreateFile(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			if (!hFile)
+			{
+				std::cout << "文件打开失败" << std::endl;
+				return false;
+			}
+			DWORD dwFileSize = GetFileSize(hFile, NULL);
+			m_Data.resize(dwFileSize);
+			DWORD dwBytesRead;
+			if (ReadFile(hFile, m_Data.data(), dwFileSize, &dwBytesRead, NULL))
+			{
+				CloseHandle(hFile);
+				return true;
+			}
+			CloseHandle(hFile);
+			return false;
+		}
+		bool Play(PlayMode mode = PM_ASYNC)
+		{
+			if (m_Data.empty())
+			{
+				std::cout << "兄弟，你还没有加载文件呢" << std::endl;
+				return false;
+			}
+			else
+				return PlaySound((LPCWSTR)m_Data.data(), nullptr, SND_MEMORY | SND_APPLICATION | mode | SND_NODEFAULT);
+		}
+		bool Play(CQSTR filePath, PlayMode mode = PM_ASYNC)
+		{
+			return PlaySound(filePath.c_str(), nullptr, SND_APPLICATION | mode | SND_NODEFAULT);
+		}
+		void Stop()
+		{
+			PlaySound(NULL, NULL, 0);
+		}
+	private:
+		std::vector<BYTE>m_Data;
+	};
 }
