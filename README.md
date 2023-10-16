@@ -71,6 +71,10 @@ xmake create <project_name>
 Vector3模板类
 Vector2模板类
 
+添加功能
+SimpleSound类
+用于播放wav音频文件
+
 添加元素
 d2dElliptic
 用于绘制椭圆
@@ -86,5 +90,5 @@ d2dPictureAnimation
 
 bug修复
 ```
-修复了鼠标移到窗口消息与鼠标滚轮消息无法正常截取的bug
+修复了鼠标移动消息与鼠标滚轮消息无法正常截取的bug
 ```
