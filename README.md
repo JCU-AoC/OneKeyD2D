@@ -18,7 +18,7 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
 
 ## Visual Studio Code 配置环境
 
-将`include`文件夹放入您的项目文件夹后，可能需要配置调试环境（这里以g++为例）。
+将include文件夹放入您的项目文件夹后，可能需要配置调试环境（这里以g++为例）。
 
 打开`tasks.json`文件,找到"args"（表示编译时的后缀）:
 
@@ -41,11 +41,11 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
 ```
 ## Visual Studio 配置环境
 
-将`include`文件夹放入您的项目文件夹后，在“项目——属性——C/C++——命令行”中添加`/utf-8`，并在高级文件保存中设置文件保存格式为`Unicode`(UTF-8 无签名)，或把所有库文件改成GBK格式。
+将include文件夹放入您的项目文件夹后，在“项目——属性——C/C++——命令行”中添加`/utf-8`，并在高级文件保存中设置文件保存格式为`Unicode`(UTF-8 无签名)，或把所有库文件改成GBK格式。
 
 ## Xmake 项目配置
 
-将`include`文件夹放入项目文件夹，打开`xmake.lua`，在`add_files`下面添加该语句：
+将include文件夹放入项目文件夹，打开`xmake.lua`，在`add_files`下面添加该语句：
 
 ```lua
 add_headerfiles("/src/include/*.hpp")
