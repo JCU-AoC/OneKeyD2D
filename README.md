@@ -68,20 +68,16 @@ xmake create <project_name>
 * 添加`Vector`命名空间
     * 包含`Vector2`模板类和`Vector3`模板类
 
-* 添加功能
-    * `SimpleSound`类
+* 添加类`SimpleSound`
     * 用于播放wav音频文件
 
-* 添加元素
-    * `d2dElliptic`
+* 添加元素`d2dElliptic`
     * 用于绘制椭圆
 
-* 添加元素功能
-    * `d2dRectangle`
+* 添加元素功能`d2dRectangle`
     * 新增圆角绘制与填充绘制
 
-* 添加控件
-    * `d2dPictureAnimation`
+* 添加控件`d2dPictureAnimation`
     * 用于实现单图片切割关键帧播放
 
 **bug修复：**
