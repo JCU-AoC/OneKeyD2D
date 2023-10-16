@@ -1,4 +1,6 @@
->当前版本：0.11
+[English (US)](README_EN.md) | 简体中文
+
+> 当前版本：0.11
 
 # OneKeyD2D
 
