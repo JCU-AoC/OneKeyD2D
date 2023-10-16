@@ -63,32 +63,30 @@ xmake create <project_name>
 
 ### 0.12
 
-新增
-```
-添加Vector命名空间
-包含
-//为下一版本场景更新做准备
-Vector3模板类
-Vector2模板类
+**新增：**
 
-添加功能
-SimpleSound类
-用于播放wav音频文件
+* 添加Vector命名空间
+    * 包含
+    //为下一版本场景更新做准备
+    * Vector3模板类
+    * Vector2模板类
 
-添加元素
-d2dElliptic
-用于绘制椭圆
+* 添加功能
+    * SimpleSound类
+    * 用于播放wav音频文件
 
-添加元素功能
-d2dRectangle
-新增圆角绘制与填充绘制
+* 添加元素
+    * d2dElliptic
+    * 用于绘制椭圆
 
-添加控件
-d2dPictureAnimation
-用于实现单图片切割关键帧播放
-```
+* 添加元素功能
+    * d2dRectangle
+    * 新增圆角绘制与填充绘制
 
-bug修复
-```
-修复了鼠标移动消息与鼠标滚轮消息无法正常截取的bug
-```
+* 添加控件
+    * d2dPictureAnimation
+    * 用于实现单图片切割关键帧播放
+
+**bug修复：**
+
+* 修复了鼠标移动消息与鼠标滚轮消息无法正常截取的bug
