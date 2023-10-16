@@ -1,4 +1,4 @@
-简体中文 | [English (US)](README_EN.md)
+简体中文 | [English (US)](README.md)
 
 > 当前版本：0.11
 
