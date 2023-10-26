@@ -309,6 +309,7 @@ namespace Game {
 			}
 			void CreateAixLineColor(ID2D1RenderTarget* tar)
 			{
+				SafeRelease(&m_axisColor);
 				tar->CreateSolidColorBrush(m_TextColor, &m_axisColor);
 			}
 			void UpdateCoordinate()
@@ -701,8 +702,8 @@ namespace Game {
 		{
 			static d2dEdit* g_CurrentFocusEdit;
 
-			const D2D1_COLOR_F DefultColor = D2D1::ColorF(0.7, 0.7, 0.7);
-			const D2D1_COLOR_F SelectedColor = D2D1::ColorF(0.8, 0.8, 0.8);
+			D2D1_COLOR_F DefultColor = D2D1::ColorF(0.7, 0.7, 0.7);
+			D2D1_COLOR_F SelectedColor = D2D1::ColorF(0.8, 0.8, 0.8);
 			const D2D1_COLOR_F m_CursorColorF = D2D1::ColorF(0);
 
 			MainWind_D2D* m_BindedWind;
@@ -810,6 +811,10 @@ namespace Game {
 				UnBind();
 				SafeRelease(&m_CursorColor);
 			}
+			void SetSelsetedColor()
+			{
+
+			}
 			const std::wstring& GetShowString()const
 			{
 				return m_CheckRect.GetShowString();
@@ -859,84 +864,22 @@ namespace Game {
 				if(!m_BindedWind)
 					return;
 				m_CheckRect.Unbind();
+				SafeRelease(&m_CursorColor);
 			}
 		};
 		d2dEdit* d2dEdit::g_CurrentFocusEdit = nullptr;
 
-		class d2dPictureAnimation
+
+		class d2dPictureAnimationBase
 		{
+		protected:
 			D2D1_RECT_F m_ShowRect;
-			WindElements::d2dPicture* m_DataPicture;
-			Vector::Vec2 m_StartPosition;
-			Vector::Vec2 m_CurrentPosition;
-			Vector::Vec2 m_OneWide;
-			Vector::Vec2 m_ShiftWide;
 			float m_CurrentTime;
-			float m_switchTime;
-			int m_PictureCount;
+			float m_SwitchTime;
 			int m_CurrentPicture;
+			float m_Opacity;
 		public:
-			d2dPictureAnimation() :m_DataPicture(nullptr), m_PictureCount(0), m_CurrentPicture(0), m_switchTime(0.1),m_CurrentTime(0)
-			{
-			}
-			void Init()
-			{
-				m_CurrentPosition = m_StartPosition;
-			}
-			void Init(const Vector::Vec2& StartPosition, const Vector::Vec2& pictureWide, const Vector::Vec2& shiftWide,int pictureCount)
-			{
-				m_PictureCount = pictureCount;
-				m_OneWide = pictureWide;
-				m_ShiftWide = shiftWide;
-				m_StartPosition = StartPosition;
-				m_CurrentPosition = m_StartPosition;
-			}
-			void Init(int wCount, int hCount, int StartX, int StartY,int PictureCount)
-			{
-				if (!m_DataPicture)
-				{
-					throw std::runtime_error("未指定数据图片");
-					return;
-				}
-				auto size = m_DataPicture->GetImageRect();
-				m_PictureCount = PictureCount;
-				m_OneWide = Vector::Vec2(size.width / wCount, size.height / hCount);
-				m_ShiftWide = m_OneWide;
-				m_StartPosition = Vector::Vec2(m_OneWide.x * StartX, m_OneWide.y * StartY);
-				Init();
-			}
-			/// <summary>
-			/// 跳转到指定帧
-			/// </summary>
-			/// <param name="index">指定帧</param>
-			/// <param name="ContinueSwitch">默认为true，如果为false动画将暂停播放，只有重新设置大于0的切换时间以继续</param>
-			void ToPicture(int index, bool ContinueSwitch = true)
-			{
-				Init();
-				for (int i = 0; i < index; ++i)
-				{
-					ShowNext();
-				}
-				if (!ContinueSwitch)
-					m_switchTime = -1;
-			}
-			/// <summary>
-			/// 设置一帧的切换时间
-			/// </summary>
-			/// <param name="time">单位秒</param>
-			void SetSwitchTime(float time)
-			{
-				m_switchTime = time * 1000;
-			}
-			void SetPicturCount(int Count)
-			{
-				m_PictureCount = Count;
-			}
-			void SetDataPicture(WindElements::d2dPicture* DataPicture)
-			{
-				m_DataPicture = DataPicture;
-				Init();
-			}
+			d2dPictureAnimationBase():m_CurrentTime(0),m_SwitchTime(1000),m_CurrentPicture(0),m_Opacity(1){}
 			void SetShowPosition(const Vector::Vec2& pos)
 			{
 				float wDifference = pos.x - m_ShowRect.left;
@@ -951,6 +894,149 @@ namespace Game {
 				m_ShowRect.bottom = wide.y + m_ShowRect.top;
 				m_ShowRect.right = wide.x + m_ShowRect.left;
 			}
+			void SetShowRect(const D2D1_RECT_F& rect)
+			{
+				m_ShowRect = rect;
+			}
+			/// <summary>
+			/// 显示区域的x，y
+			/// </summary>
+			/// <param name="x"></param>
+			/// <param name="y"></param>
+			void SetShowPosition(float x, float y)
+			{
+				float wDifference = x - m_ShowRect.left;
+				float hDifference = y - m_ShowRect.top;
+				m_ShowRect.left += wDifference;
+				m_ShowRect.top += hDifference;
+				m_ShowRect.right += wDifference;
+				m_ShowRect.bottom += hDifference;
+			}
+			/// <summary>
+			/// 显示区域的宽度与高度
+			/// </summary>
+			/// <param name="width"></param>
+			/// <param name="height"></param>
+			void SetShowWide(float width, float height)
+			{
+				m_ShowRect.bottom = height + m_ShowRect.top;
+				m_ShowRect.right = width + m_ShowRect.left;
+			}
+			D2D1_RECT_F GetShowRect()const
+			{
+				return m_ShowRect;
+			}
+			D2D1_SIZE_F GetShowSize()const
+			{
+				return { m_ShowRect.right - m_ShowRect.left,m_ShowRect.bottom - m_ShowRect.top };
+			}
+
+			void SetOpacity(float Opacity)
+			{
+				m_Opacity = Opacity;
+			}
+
+			void SetSwitchTime(float second)
+			{
+				m_SwitchTime = second * 1000;
+			}
+			virtual void ToPicture(int index, bool ContinueSwitch = true) = 0;
+			virtual void ShowNext() = 0;
+			virtual void Draw(MainWind_D2D* tar) = 0;
+		};
+		/// <summary>
+		/// 实现对单个图片的关键帧动画播放。
+		/// 不负责资源管理，图片资源（d2dPicture元素）手动添加
+		/// </summary>
+		class d2dPictureAnimation :public d2dPictureAnimationBase
+		{
+			WindElements::d2dPicture* m_DataPicture;
+			Vector::Vec2 m_StartPosition;
+			Vector::Vec2 m_CurrentPosition;
+			Vector::Vec2 m_OneWide;
+			Vector::Vec2 m_ShiftWide;
+			int m_PictureCount;
+
+			std::vector<Vector::Vec2> m_Crops;
+		public:
+			d2dPictureAnimation() :m_DataPicture(nullptr), m_PictureCount(0)
+			{
+			}
+			WindElements::d2dPicture* GetImageData()const
+			{
+				return m_DataPicture;
+			}
+			void Init()
+			{
+				m_CurrentPosition = m_StartPosition;
+				m_CurrentPicture = 0;
+			}
+			void Init(WindElements::d2dPicture* Image,const Vector::Vec2& StartPosition, const Vector::Vec2& pictureWide, const Vector::Vec2& shiftWide,int pictureCount)
+			{
+				m_PictureCount = pictureCount;
+				m_OneWide = pictureWide;
+				m_ShiftWide = shiftWide;
+				m_StartPosition = StartPosition;
+				m_CurrentPosition = m_StartPosition;
+
+				m_DataPicture = Image;
+
+				if (!m_DataPicture)
+					return;
+				m_Crops.clear();
+				m_Crops.push_back(m_CurrentPosition);
+				for (int i = 1; i < pictureCount; ++i)
+				{
+					m_CurrentPosition.x += m_ShiftWide.x;
+					if (m_CurrentPosition.x >= m_DataPicture->GetImageSize().width)
+					{
+						m_CurrentPosition.x = m_StartPosition.x;
+						m_CurrentPosition.y += m_ShiftWide.y;
+					}
+					m_Crops.push_back(m_CurrentPosition);
+				}
+			}
+			void Init(WindElements::d2dPicture* Image,int wCount, int hCount, int StartX, int StartY,int PictureCount)
+			{
+				auto imageSize = Image->GetImageSize();
+				Vector::Vec2 size = Vector::Vec2(imageSize.width, imageSize.height);
+				size.x /= wCount;
+				size.y /= hCount;
+
+				Init(Image, Vector::Vec2(size.x * StartX, size.y * StartY), size, size, PictureCount);
+			}
+			/// <summary>
+			/// 跳转到指定帧
+			/// </summary>
+			/// <param name="index">指定帧</param>
+			/// <param name="ContinueSwitch">默认为true，如果为false动画将暂停播放，只有重新设置大于0的切换时间以继续</param>
+			void ToPicture(int index, bool ContinueSwitch = true)override
+			{
+				if (index >= m_PictureCount || index < 0)
+				{
+					return;
+				}
+				m_CurrentPicture = index;
+				m_CurrentPosition = m_Crops[m_CurrentPicture];
+				if (!ContinueSwitch)
+					m_SwitchTime = -1;
+			}
+			/// <summary>
+			/// 设置一帧的切换时间
+			/// 小于0则固定
+			/// </summary>
+			/// <param name="time">单位秒</param>
+
+			void SetPicturCount(int Count)
+			{
+				m_PictureCount = Count;
+			}
+			void SetDataPicture(WindElements::d2dPicture* DataPicture)
+			{
+				m_DataPicture = DataPicture;
+				Init();
+			}
+
 			void SetPicturePos(const Vector::Vec2& pos)
 			{
 				m_StartPosition = pos;
@@ -966,39 +1052,91 @@ namespace Game {
 				m_ShiftWide = wide;
 				Init();
 			}
-			void ShowNext()
+			
+			void ShowNext()override
 			{
 				if (!m_DataPicture)
 					return;
 				m_CurrentPicture++;
-				m_CurrentPosition.x += m_ShiftWide.x;
-				if (m_CurrentPosition.x >= m_DataPicture->GetImageRect().width)
-				{
-					m_CurrentPosition.x = m_StartPosition.x;
-					m_CurrentPosition.y += m_ShiftWide.y;
-				}
 				if (m_CurrentPicture >= m_PictureCount)
-				{
-					Init();
 					m_CurrentPicture = 0;
-				}
+				m_CurrentPosition = m_Crops[m_CurrentPicture];
 			}
-			void Draw(MainWind_D2D* tar)
+			void Draw(MainWind_D2D* tar)override
 			{
 				if (!tar||!m_DataPicture)
 					return;
-				m_CurrentTime += tar->GetPaintIntervalTime();
-				while (m_CurrentTime > m_switchTime)
+				if (m_SwitchTime > 0)
 				{
-					if (m_switchTime <= 0)
-						break;
-					ShowNext();
-					m_CurrentTime -= m_switchTime;
+					m_CurrentTime += tar->GetPaintIntervalTime();
+					while (m_CurrentTime > m_SwitchTime)
+					{
+						ShowNext();
+						m_CurrentTime -= m_SwitchTime;
+					}
 				}
 				Vector::Vec2 pos2 = m_CurrentPosition + m_OneWide;
+
 				m_DataPicture->SetCrop({ m_CurrentPosition.x,m_CurrentPosition.y,pos2.x,pos2.y });
 				m_DataPicture->SetShowRect(m_ShowRect);
+				m_DataPicture->SetOpacity(m_Opacity);
 				m_DataPicture->Draw(tar);
+			}
+
+		};
+		/// <summary>
+		/// 实现对多个图片的关键帧动画播放。
+		/// 不负责资源管理，图片资源（d2dPicture元素）手动添加
+		/// </summary>
+		class d2dPicturesAnimation:public d2dPictureAnimationBase
+		{
+			std::vector<WindElements::d2dPicture*> m_DataPicture;
+		public:
+			d2dPicturesAnimation() {}
+
+			void ToPicture(int index,bool switchPicture=true)override
+			{
+				if (index >= m_DataPicture.size())
+					return;
+				m_CurrentPicture = index;
+				if (!switchPicture)
+				{
+					m_SwitchTime = -1;
+				}
+			}
+			WindElements::d2dPicture* GetPicture(int index)
+			{
+				if (index >= m_DataPicture.size())
+					return nullptr;
+				return m_DataPicture[index];
+			}
+			void ShowNext()override
+			{
+				++m_CurrentPicture;
+				if (m_CurrentPicture >= m_DataPicture.size())
+				{
+					m_CurrentPicture = 0;
+				}
+			}
+			void Draw(MainWind_D2D* tar)override
+			{
+				if (m_SwitchTime > 0)
+				{
+					m_CurrentTime += tar->GetPaintIntervalTime();
+					while (m_CurrentTime > m_SwitchTime)
+					{
+						ShowNext();
+						m_CurrentTime -= m_SwitchTime;
+					}
+				}
+				auto picture = GetPicture(m_CurrentPicture);
+				if (!picture || !tar)
+				{
+					return;
+				}
+				picture->SetShowRect(m_ShowRect);
+				picture->SetOpacity(m_Opacity);
+				picture->Draw(tar);
 			}
 		};
 	}

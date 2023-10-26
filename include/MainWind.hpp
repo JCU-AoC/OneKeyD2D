@@ -6,11 +6,14 @@
 #include<iostream>
 #include<vector>
 #include<set>
+#include<thread>
 #include<dwrite.h>
 #include"D2Dmacro.hpp"
 
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"Dwrite.lib")
+//0.12 Sound
+#pragma comment(lib,"Winmm.lib")
 
 
 #define MAINWIND_HPP
@@ -1254,7 +1257,23 @@ namespace Game
 
 		};
 		SimpleSound(){}
-		~SimpleSound(){}
+		~SimpleSound()
+		{
+			Stop();
+		}
+		/// <summary>
+		/// 从内存加载wav数据
+		/// </summary>
+		/// <param name="WavData"></param>
+		void LoadMusicFormMemery(const std::vector<BYTE>& WavData)
+		{
+			m_Data = WavData;
+		}
+		/// <summary>
+		/// 从文件加载wav数据
+		/// </summary>
+		/// <param name="filePath"></param>
+		/// <returns></returns>
 		bool LoadMusicFile(CQSTR filePath)
 		{
 			HANDLE hFile = CreateFile(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -1274,6 +1293,7 @@ namespace Game
 			CloseHandle(hFile);
 			return false;
 		}
+		
 		bool Play(PlayMode mode = PM_ASYNC)
 		{
 			if (m_Data.empty())
@@ -1282,15 +1302,17 @@ namespace Game
 				return false;
 			}
 			else
-				return PlaySound((LPCWSTR)m_Data.data(), nullptr, SND_MEMORY | SND_APPLICATION | mode | SND_NODEFAULT);
+				return PlaySound((LPCWSTR)m_Data.data(), nullptr, SND_MEMORY | SND_APPLICATION | (int)mode);
 		}
 		bool Play(CQSTR filePath, PlayMode mode = PM_ASYNC)
 		{
-			return PlaySound(filePath.c_str(), nullptr, SND_APPLICATION | mode | SND_NODEFAULT);
+			return PlaySound(filePath.c_str(), nullptr, SND_APPLICATION | (int)mode );
 		}
 		void Stop()
 		{
+
 			PlaySound(NULL, NULL, 0);
+			return;
 		}
 	private:
 		std::vector<BYTE>m_Data;

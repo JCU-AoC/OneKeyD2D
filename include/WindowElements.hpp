@@ -87,6 +87,7 @@ namespace Game
 					return false;
 				}
 				IWICBitmapDecoder* pDecoder = nullptr;
+
 				hr = pWICFactory->CreateDecoderFromFilename(filePath.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &pDecoder);
 				if (FAILED(hr))
 				{
@@ -151,6 +152,87 @@ namespace Game
 				return true;
 			}
 
+			/// <summary>
+			/// 加载像素格式的数据
+			/// </summary>
+			/// <param name="pData">数据指针</param>
+			/// <param name="width">图片宽度</param>
+			/// <param name="height">图片高度</param>
+			/// <param name="pRenderTarget"></param>
+			/// <param name="bitmapProperties">图片数据格式</param>
+			/// <returns></returns>
+			bool LoadBitmapFromMemory(const unsigned char* pData, UINT width, UINT height, ID2D1RenderTarget* pRenderTarget,
+				D2D1_BITMAP_PROPERTIES bitmapProperties = D2D1::BitmapProperties())
+			{
+				if (!pData)
+					return false;
+				SafeRelease(&m_Bitmap);
+				HRESULT hr = pRenderTarget->CreateBitmap(D2D1::SizeU(width, height), pData, width * 4, &bitmapProperties, &m_Bitmap);
+
+				if (SUCCEEDED(hr))
+				{
+					return true;
+				}
+				return false;
+			}
+			/// <summary>
+			/// 加载内存中的jpg，png等格式文件
+			/// </summary>
+			/// <param name="pData">数据指针</param>
+			/// <param name="dataSize">数据长度</param>
+			/// <param name="pRenderTarget"></param>
+			/// <returns></returns>
+			HRESULT LoadImageFromMemory(const unsigned char* pData, UINT dataSize,ID2D1RenderTarget* pRenderTarget)
+			{
+				// 创建内存流对象
+				IWICStream* pStream = nullptr;
+				IWICImagingFactory* pWICFactory = nullptr;
+				HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pWICFactory));
+				if (FAILED(hr))
+				{
+					std::cout << "错误码" << hr << std::endl;
+					return S_FALSE;
+				}
+				hr = pWICFactory->CreateStream(&pStream);
+				if (SUCCEEDED(hr))
+				{
+					// 初始化内存流对象
+					hr = pStream->InitializeFromMemory(const_cast<unsigned char*>(pData), dataSize);
+					if (SUCCEEDED(hr))
+					{
+						// 创建解码器对象
+						IWICBitmapDecoder* pDecoder = nullptr;
+						hr = pWICFactory->CreateDecoderFromStream(pStream, nullptr, WICDecodeMetadataCacheOnDemand, &pDecoder);
+						if (SUCCEEDED(hr))
+						{
+							// 解码第一帧
+							IWICBitmapFrameDecode* pFrame = nullptr;
+							hr = pDecoder->GetFrame(0, &pFrame);
+							if (SUCCEEDED(hr))
+							{
+								// 转换为格式转换器对象
+								IWICFormatConverter* pConverter = nullptr;
+								hr = pWICFactory->CreateFormatConverter(&pConverter);
+								if (SUCCEEDED(hr))
+								{
+									hr = pConverter->Initialize(pFrame, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeMedianCut);
+									if (SUCCEEDED(hr))
+									{
+										SafeRelease(&m_Bitmap);
+										hr = pRenderTarget->CreateBitmapFromWicBitmap(pConverter, nullptr, &m_Bitmap);
+									}
+									pConverter->Release();
+								}
+								pFrame->Release();
+							}
+							pDecoder->Release();
+						}
+					}
+					pStream->Release();
+				}
+				SafeRelease(&pWICFactory);
+				return hr;
+			}
 			void SetOpacity(float t)
 			{
 				m_Transparency = t;
@@ -193,6 +275,17 @@ namespace Game
 
 				return true;
 			}
+			bool Draw(ID2D1RenderTarget* d2dRenderTarget ,const D2D1_RECT_F& crop)
+			{
+				if (!d2dRenderTarget || !m_Bitmap)
+					return false;
+				d2dRenderTarget->GetTransform(&originalTransform);
+				d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
+				d2dRenderTarget->DrawBitmap(m_Bitmap, m_ShowRectangle, m_Transparency, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR, crop);
+				d2dRenderTarget->SetTransform(originalTransform);
+
+				return true;
+			}
 			bool Draw(MainWind_D2D* d2dWind)override
 			{
 				return Draw(d2dWind->GetD2DTargetP());
@@ -203,7 +296,7 @@ namespace Game
 			{
 				return m_Crop;
 			}
-			D2D1_SIZE_F GetImageRect()const
+			D2D1_SIZE_F GetImageSize()const
 			{
 				return m_ImageWide;
 			}
