@@ -61,6 +61,28 @@ xmake create <project_name>
 
 ## 更新日志
 
+### 0.2
+
+**新增：**
+* 添加文件RoomManage
+    * 包含`Room`
+    * 包含`RoomManage`
+    * 包含`RoomObject`
+    * 包含`Camera2D`
+* 添加命名空间`RoomObject`
+    * 包含`RoomUI`纯虚类
+    * 包含`RoomScence`纯虚类
+    * 包含`ImageUI`
+    * 包含`Image`
+    * 包含`Animation`
+    * 包含`AnimationUI`
+    * 包含`TextUI`
+    * 包含`TileMap`
+
+**bug修复：**
+
+* 修复了Edit控件反复绑定到窗口会导致内存泄漏的bug
+
 ### 0.12
 
 **新增：**
