@@ -769,6 +769,8 @@ namespace Game
 				m_d2dRenderTarget->Clear(m_BackgroundColor);
 			if (m_PaintCallback)
 				m_PaintCallback(this);
+			// 如果你的程序卡住了，暂停跳转到了这里，
+			// 多半是出现了逻辑错误（而且指针非法访问的错误可能也不会报，要自己找）
 			m_d2dRenderTarget->EndDraw();
 			m_LastPaintTime = m_NowTime;
 			return;
@@ -1137,7 +1139,7 @@ namespace Game
 		}
 		bool DrawGeometry(D2D1_POINT_2F* pointArr,int pointCount)
 		{
-			if (!m_d2dRenderTarget)
+			if (!m_d2dRenderTarget||!m_PenBrush)
 				return false;
 			ID2D1PathGeometry* pGeometry = NULL;
 			m_d2dFactory->CreatePathGeometry(&pGeometry);
@@ -1246,14 +1248,15 @@ namespace Game
 		/// </summary>
 		enum PlayMode
 		{
+			PM_ONECE = 0,
 			/// <summary>
 			/// 异步播放，不会阻塞
 			/// </summary>
-			PM_ASYNC= SND_ASYNC,
+			PM_ASYNC = SND_ASYNC,
 			/// <summary>
 			/// 循环播放
 			/// </summary>
-			PM_LOOP= SND_LOOP,
+			PM_LOOP = (SND_LOOP | SND_ASYNC),
 
 		};
 		SimpleSound(){}
@@ -1277,7 +1280,7 @@ namespace Game
 		bool LoadMusicFile(CQSTR filePath)
 		{
 			HANDLE hFile = CreateFile(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			if (!hFile)
+			if (hFile == nullptr)
 			{
 				std::cout << "文件打开失败" << std::endl;
 				return false;

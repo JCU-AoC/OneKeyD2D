@@ -181,15 +181,19 @@ namespace Game {
 		COLORREF m_ClearColor;
 		bool m_BKClearRun;
 
+		RoomManage* m_BindedRoomManage;
 		long long m_RoomUserData;
 		RoomCallback::RoomKeyCallback m_RoomKeyCallback;
 		RoomCallback::RoomMouseCallback m_MouseCallback;
 		RoomCallback::RoomSizeCallback m_SizeCallback;
 		RoomCallback::RoomUserWindowDrawCallback m_UserWindowDrawCallback;
+
+		friend RoomManage;
 	protected:
 		Camera2D m_Camera;
 	public:
-		Room() :m_RoomKeyCallback(nullptr), m_MouseCallback(nullptr), m_RoomUserData(0), m_SizeCallback(nullptr),m_UserWindowDrawCallback(nullptr){}
+		Room() :m_RoomKeyCallback(nullptr), m_MouseCallback(nullptr), m_RoomUserData(0),
+			m_SizeCallback(nullptr), m_UserWindowDrawCallback(nullptr), m_BindedRoomManage(nullptr) {}
 		virtual ~Room()
 		{
 		}
@@ -203,6 +207,10 @@ namespace Game {
 			}
 			if (m_UserWindowDrawCallback)
 				m_UserWindowDrawCallback(this, m_wind);
+		}
+		RoomManage* GetRoomManage()const
+		{
+			return m_BindedRoomManage;
 		}
 		/// <summary>
 		/// 查找房间对象是否在房间中
@@ -339,6 +347,7 @@ namespace Game {
 
 		virtual void Start(){}
 		virtual void Update(float IntervalTime) {};
+		virtual void End() {}
 	};
 	/// <summary>
 	/// 场景管理器
@@ -370,6 +379,22 @@ namespace Game {
 				return -1;
 			}
 			m_RoomIndex.insert(std::make_pair(id, room));
+			room->m_BindedRoomManage = this;
+		}
+		void DeleteRoom(int id)
+		{
+			auto index = m_RoomIndex.find(id);
+			if (index == m_RoomIndex.end())
+			{
+				return;
+			}
+			if (m_CurrentRoom == index->second)
+			{
+				m_CurrentRoom = nullptr;
+			}
+			index->second->m_BindedRoomManage = nullptr;
+			m_RoomIndex.erase(index);
+			
 		}
 		bool GotoRoom(int id)
 		{
@@ -380,9 +405,18 @@ namespace Game {
 			{
 				return false;
 			}
+			if (m_CurrentRoom)
+			{
+				m_CurrentRoom->End();
+			}
 			m_wind->DeleteButten();
 			index->second->GotoRoom(m_wind);
+			m_CurrentRoom = index->second;
 			return true;
+		}
+		MainWind_D2D* GetCurrentWindow()const
+		{
+			return m_wind;
 		}
 	};
 
@@ -557,13 +591,13 @@ namespace Game {
 			WindElements::d2dText m_text;
 		public:
 			TextUI():m_wind(nullptr){}
-			void SetColor(const Vector::Vec3& color)
+			void SetColor(const Vector::Vec3& color, Game::MainWind_D2D* wind)
 			{
-				SetColor(D2D1::ColorF(color.r, color.g, color.b));
+				SetColor(D2D1::ColorF(color.r, color.g, color.b), wind);
 			}
-			void SetColor(const D2D1_COLOR_F& color)
+			void SetColor(const D2D1_COLOR_F& color, Game::MainWind_D2D* wind)
 			{
-				m_text.SetColor(color, m_wind->GetD2DTargetP());
+				m_text.SetColor(color, wind->GetD2DTargetP());
 			}
 			void SetText(const std::wstring& str)
 			{
@@ -577,7 +611,6 @@ namespace Game {
 			{
 				m_wind = wind;
 				auto&& tar = m_wind->GetD2DTargetP();
-				m_text.SetColor(D2D1::ColorF(0), tar);
 			}
 			void Draw(MainWind_D2D* wind, const Camera2D&)override
 			{
@@ -600,6 +633,19 @@ namespace Game {
 			WindControl::d2dPictureAnimationBase* GetCurrentData()const
 			{
 				return m_Animation;
+			}
+			void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera)override
+			{
+				if (!wind || (!m_Animation))
+					return;
+				m_Animation->SetShowRect(m_ShowRectangle);
+				m_Animation->SetOpacity(m_Opacity);
+				m_Animation->Draw(wind);
+
+			}
+			void Init(Game::MainWind_D2D* m_wind)override
+			{
+
 			}
 		};
 		/// <summary>
@@ -741,7 +787,7 @@ namespace Game {
 					return;
 				m_Data->SetSwitchTime(-1);
 
-				m_Data->SetShowWide(CameraToWindow(m_ImageWide, wind, Camera));
+				m_Data->SetShowWide(CameraToWindow(m_ImageWide, wind, Camera)+1);
 				Vector::Vec2 rightTop(Camera.m_Position + Camera.m_ShowWide * 0.5 - m_Position);
 				Vector::Vec2 leftBottom(Camera.m_Position - Camera.m_ShowWide * 0.5 - m_Position);
 

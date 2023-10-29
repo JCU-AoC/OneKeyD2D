@@ -1093,7 +1093,14 @@ namespace Game {
 			std::vector<WindElements::d2dPicture*> m_DataPicture;
 		public:
 			d2dPicturesAnimation() {}
-
+			void SetData(std::vector<WindElements::d2dPicture*>& data)
+			{
+				m_DataPicture = data;
+			}
+			void AddData(WindElements::d2dPicture* data)
+			{
+				m_DataPicture.push_back(data);
+			}
 			void ToPicture(int index,bool switchPicture=true)override
 			{
 				if (index >= m_DataPicture.size())
