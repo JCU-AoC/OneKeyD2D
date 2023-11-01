@@ -1,4 +1,4 @@
-> 当前版本：0.2
+> 当前版本：0.21
 
 # OneKeyD2D
 
@@ -60,6 +60,24 @@ xmake create <project_name>
 ```
 
 ## 更新日志
+
+### 0.21
+
+**新增：**
+* 添加文件OneKeyD2D.hpp
+    * 用作快速引用组件
+* RoomManage添加用户数据函数
+* Room可以直接调用GetRoomManage获取管理器实现内部场景跳转，可以获取当前窗口
+* 添加类Sound
+    * 可以进行更加精细的音频播放操作，包括暂停跳转音量等功能，可读取mp3
+* RoomObjectUI新增相当UI设置控件位置
+    * 实现控件自动跟随窗口移动，避免重载size函数
+    * 旧的代码依旧适用 
+* RoomObject新增Button控件
+
+**bug修复：**
+
+* 修复了OneKeyD2D在多文件编程中会出现重定义的错误
 
 ### 0.2
 
