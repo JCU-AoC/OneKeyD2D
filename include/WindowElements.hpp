@@ -447,12 +447,12 @@ namespace Game
 					return { -1, -1 };
 				}
 				IDWriteTextLayout* dwriteTextLayout;
-				hr= writeFactory->CreateTextLayout(
+				hr = writeFactory->CreateTextLayout(
 					m_ShowText.c_str(),
 					m_ShowText.size(),
 					m_TextFormat,
-					FLT_MAX,
-					FLT_MAX,
+					m_ShowRectangle.right - m_ShowRectangle.left,
+					m_ShowRectangle.bottom - m_ShowRectangle.top,
 					&dwriteTextLayout
 				);
 				if (FAILED(hr))
@@ -479,6 +479,23 @@ namespace Game
 				SafeRelease(&dwriteTextLayout);
 				SafeRelease(&writeFactory);
 				return { charX,charY };
+			}
+			bool Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
+			{
+				return Draw(d2dWind->GetD2DTargetP(), rect);
+			}
+			bool Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
+			{
+				if (!d2dRenderTarget || !m_Color)
+					return false;
+				d2dRenderTarget->PushAxisAlignedClip(rect, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+				d2dRenderTarget->GetTransform(&originalTransform);
+				d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
+
+				d2dRenderTarget->DrawText(m_ShowText.c_str(), m_ShowText.size(), m_TextFormat, &rect, m_Color);
+				d2dRenderTarget->SetTransform(originalTransform);
+				d2dRenderTarget->PopAxisAlignedClip();
+				return true;
 			}
 			bool Draw(MainWind_D2D* d2dWind)
 			{
@@ -626,6 +643,26 @@ namespace Game
 			bool Draw(MainWind_D2D* d2dWind)override
 			{
 				return Draw(d2dWind->GetD2DTargetP());
+			}
+			
+			bool Draw(MainWind_D2D * d2dWind, const D2D1_RECT_F & rect)
+			{
+				return Draw(d2dWind->GetD2DTargetP(),rect);
+			}
+			bool Draw(ID2D1RenderTarget* d2dRenderTarget,const D2D1_RECT_F& rect)
+			{
+				if (!d2dRenderTarget || !m_Color)
+					return false;
+
+				d2dRenderTarget->GetTransform(&originalTransform);
+				d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
+				if (m_Fill)
+					d2dRenderTarget->FillRectangle(rect, m_Color);
+				else
+					d2dRenderTarget->DrawRectangle(rect, m_Color, m_PenWide);
+				d2dRenderTarget->SetTransform(originalTransform);
+
+				return true;
 			}
 		};
 		class d2dFoldLine:public d2dElements

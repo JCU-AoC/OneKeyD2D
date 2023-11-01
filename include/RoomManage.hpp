@@ -64,7 +64,7 @@ namespace Game {
 		}
 		void SetAngle(float angle)
 		{
-			m_Data.z = Vector::AngleToRadian(angle);
+			m_Data.z = Vector::Vec3::AngleToRadian(angle);
 		}
 		Vector::Vec2 GetPoint()const
 		{
@@ -76,7 +76,7 @@ namespace Game {
 		}
 		float GetAngle()const
 		{
-			return Vector::RadianToAngle(m_Data.z);
+			return Vector::Vec2::RadianToAngle(m_Data.z);
 		}
 		Rotate2D operator*(const Rotate2D& rotate)
 		{
@@ -111,17 +111,20 @@ namespace Game {
 	protected:
 
 		float m_Opacity;
+
+		virtual void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera) = 0;
+		virtual void Init(Game::MainWind_D2D* wind) = 0;
+		virtual void Silent(Game::MainWind_D2D* wind) {}
+		virtual void WindowSizeChange(int w, int h) {}
 	public:
 		RoomObject() :m_Opacity(1.f)
 		{}
 		virtual ~RoomObject() { };
-		virtual void Draw(Game::MainWind_D2D* wind,const Camera2D& Camera) = 0;
-		virtual void Init(Game::MainWind_D2D* wind) = 0;
-
 		void SetOpacity(float opacity)
 		{
 			m_Opacity = opacity;
 		}
+		friend class Room;
 	};
 
 	namespace RoomCallback {
@@ -175,6 +178,10 @@ namespace Game {
 				return;
 			if (room->m_SizeCallback)
 				room->m_SizeCallback(room, x, y);
+			for (auto& obj : room->m_Objects)
+			{
+				obj->WindowSizeChange(x, y);
+			}
 		}
 
 		std::vector<RoomObject*>m_Objects;
@@ -301,17 +308,19 @@ namespace Game {
 			m_BKClearRun = open;
 			m_ClearColor = color;
 		}
-		void GotoRoom(MainWind_D2D* m_wind)
+		void GotoRoom(MainWind_D2D* window)
 		{
+			auto windowSize = window->GetWindSize();
 			for (auto& o : m_Objects)
 			{
-				o->Init(m_wind);
+				o->Init(window);
+				o->WindowSizeChange(windowSize.cx, windowSize.cy);
 			}
-			m_wind->SetUserData((LONG64)this);
-			m_wind->SetPaintCallback(StaticDraw);
-			m_wind->SetKeyCallback(StaticKeyCallback);
-			m_wind->SetMouseCallback(StaticMouseCallback);
-			m_wind->SetWindSizeCallback(StaticSizeCallback);
+			window->SetUserData((LONG64)this);
+			window->SetPaintCallback(StaticDraw);
+			window->SetKeyCallback(StaticKeyCallback);
+			window->SetMouseCallback(StaticMouseCallback);
+			window->SetWindSizeCallback(StaticSizeCallback);
 
 			Start();
 		}
@@ -339,10 +348,13 @@ namespace Game {
 		{
 			return m_RoomUserData;
 		}
-		void LeaveRoom(MainWind_D2D* m_wind)
+		void LeaveRoom(MainWind_D2D* window)
 		{
-			m_wind->SetUserData(0);
-
+			window->SetUserData(0);
+			for (auto& o : m_Objects)
+			{
+				o->Silent(window);
+			}
 		}
 
 		virtual void Start(){}
@@ -357,8 +369,12 @@ namespace Game {
 		std::map<int, Room*> m_RoomIndex;
 		Room* m_CurrentRoom;
 		MainWind_D2D* m_wind;
+		long long m_UserData;
 	public:
 		RoomManage(MainWind_D2D* m_wind) :m_CurrentRoom(nullptr), m_wind(m_wind)
+		{
+		}
+		RoomManage(MainWind_D2D& m_wind) :m_CurrentRoom(nullptr), m_wind(&m_wind)
 		{
 		}
 		void SetWind(MainWind_D2D* m_wind)
@@ -408,6 +424,7 @@ namespace Game {
 			if (m_CurrentRoom)
 			{
 				m_CurrentRoom->End();
+				m_CurrentRoom->LeaveRoom(m_wind);
 			}
 			m_wind->DeleteButten();
 			index->second->GotoRoom(m_wind);
@@ -417,6 +434,18 @@ namespace Game {
 		MainWind_D2D* GetCurrentWindow()const
 		{
 			return m_wind;
+		}
+		void SetUserData(long long data)
+		{
+			m_UserData = data;
+		}
+		const long long& GetUserData()const
+		{
+			return m_UserData;
+		}
+		long long& GetUserData()
+		{
+			return m_UserData;
 		}
 	};
 
@@ -431,8 +460,16 @@ namespace Game {
 		class RoomUI :public RoomObject
 		{
 		protected:
+			bool m_UseForUIRect;
+			D2D1_RECT_F m_ShowRectForUI;
 			D2D1_RECT_F m_ShowRectangle;
+			void WindowSizeChange(int w, int h)override
+			{
+				if (m_UseForUIRect)
+					m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
+			}
 		public:
+			RoomUI() :m_UseForUIRect(false),m_ShowRectangle(D2D1::RectF()), m_ShowRectForUI(D2D1::RectF()) {}
 			virtual ~RoomUI() {};
 			D2D1_RECT_F GetShowRect()const
 			{
@@ -444,6 +481,7 @@ namespace Game {
 			}
 			void SetShowRect(const D2D1_RECT_F& rect)
 			{
+				m_UseForUIRect = false;
 				m_ShowRectangle = rect;
 			}
 			/// <summary>
@@ -453,6 +491,7 @@ namespace Game {
 			/// <param name="y"></param>
 			void SetShowPosition(float x, float y)
 			{
+				m_UseForUIRect = false;
 				float wDifference = x - m_ShowRectangle.left;
 				float hDifference = y - m_ShowRectangle.top;
 				m_ShowRectangle.left += wDifference;
@@ -467,8 +506,53 @@ namespace Game {
 			/// <param name="height"></param>
 			void SetShowWide(float width, float height)
 			{
+				m_UseForUIRect = false;
 				m_ShowRectangle.bottom = height + m_ShowRectangle.top;
 				m_ShowRectangle.right = width + m_ShowRectangle.left;
+			}
+
+			D2D1_RECT_F GetShowRectForUI()const
+			{
+				return m_ShowRectForUI;
+			}
+			D2D1_SIZE_F GetShowSizeForUI()const
+			{
+				return { m_ShowRectForUI.right - m_ShowRectForUI.left,m_ShowRectForUI.bottom - m_ShowRectForUI.top };
+			}
+			/// <summary>
+			/// 接受的数据范围为0-1表示相对位置
+			/// </summary>
+			/// <param name="rect"></param>
+			void SetShowRectForUI(const D2D1_RECT_F& rect)
+			{
+				m_UseForUIRect = true;
+				m_ShowRectForUI = rect;
+			}
+			/// <summary>
+			/// 接受的数据范围为0-1表示相对位置
+			/// </summary>
+			/// <param name="x"></param>
+			/// <param name="y"></param>
+			void SetShowPositionForUI(float x, float y)
+			{
+				m_UseForUIRect = true;
+				float wDifference = x - m_ShowRectForUI.left;
+				float hDifference = y - m_ShowRectForUI.top;
+				m_ShowRectForUI.left += wDifference;
+				m_ShowRectForUI.top += hDifference;
+				m_ShowRectForUI.right += wDifference;
+				m_ShowRectForUI.bottom += hDifference;
+			}
+			/// <summary>
+			/// 接受的数据范围为0-1表示相对位置
+			/// </summary>
+			/// <param name="width"></param>
+			/// <param name="height"></param>
+			void SetShowWideForUI(float width, float height)
+			{
+				m_UseForUIRect = true;
+				m_ShowRectForUI.bottom = height + m_ShowRectForUI.top;
+				m_ShowRectForUI.right = width + m_ShowRectForUI.left;
 			}
 		};
 		/// <summary>
@@ -646,6 +730,58 @@ namespace Game {
 			void Init(Game::MainWind_D2D* m_wind)override
 			{
 
+			}
+		};
+
+		class ButtonUI :public RoomUI
+		{
+			WindControl::d2dColorButton m_Button;
+			
+			void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera)override
+			{
+				m_Button.Draw(wind, m_ShowRectangle);
+			}
+			void Init(Game::MainWind_D2D* wind)override
+			{
+				m_Button.Bind(wind);
+			}
+			void Silent(Game::MainWind_D2D* wind)override
+			{
+				m_Button.Unbind();
+			}
+			void WindowSizeChange(int w, int h)override
+			{
+				if (m_UseForUIRect)
+					m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
+				m_Button.SetRect(m_ShowRectangle);
+			}
+		public:
+			ButtonUI()
+			{
+			}
+			/// <summary>
+			/// 初始化
+			/// </summary>
+			/// <param name="wind">任意有效窗口</param>
+			/// <param name="ShowText">要显示的文本</param>
+			/// <param name="callBack">点击后的回调</param>
+			/// <param name="TextColor">文本颜色</param>
+			/// <param name="bkColor">背景颜色</param>
+			void Init(Game::MainWind_D2D* wind, const std::wstring& ShowText, WindCallback::ButtonCallback callBack, const D2D1_COLOR_F& TextColor = D2D1::ColorF(0), const D2D1_COLOR_F& bkColor = D2D1::ColorF(1, 1, 1))
+			{
+				m_Button.Init(0, 0, 0, 0, ShowText, TextColor, bkColor, callBack, wind);
+			}
+			void SetUserData(long long data)
+			{
+				m_Button.SetUserData(data);
+			}
+			LONG64& GetUserData()
+			{
+				return m_Button.GetUserData();
+			}
+			const LONG64& GetUserData()const
+			{
+				return m_Button.GetUserData();
 			}
 		};
 		/// <summary>

@@ -161,7 +161,8 @@ namespace Game {
 				m_ShowText.SetShowText(str);
 				m_Rectangle.SetColor(bkColor,TargetWind->GetD2DTargetP());
 				m_Rectangle.FillRect();
-				m_CheckRect.SetUserData(UserData);
+				if (UserData != 0)
+					m_CheckRect.SetUserData(UserData);
 			}
 			WindElements::d2dText& GetTextElement()
 			{
@@ -186,6 +187,10 @@ namespace Game {
 			{
 				return m_CheckRect.GetUserData();
 			}
+			const LONG64& GetUserData()const
+			{
+				return m_CheckRect.GetUserData();
+			}
 			void Negation(bool negation = true)
 			{
 				m_CheckRect.Negation(negation);
@@ -207,6 +212,15 @@ namespace Game {
 				m_CheckRect.SetRectangle(rect);
 				m_Rectangle.SetShowRect(rect);
 				m_ShowText.SetShowRect(rect);
+			}
+			void Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
+			{
+				Draw(d2dWind->GetD2DTargetP(), rect);
+			}
+			void Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
+			{
+				m_Rectangle.Draw(d2dRenderTarget,rect);
+				m_ShowText.Draw(d2dRenderTarget,rect);
 			}
 			void Draw(MainWind_D2D* wind)
 			{
@@ -690,185 +704,63 @@ namespace Game {
 			}
 		};
 
-
-		/// <summary>
-		/// 编辑框，用于编辑文字
-		/// 当用户点击进入编辑框，离开编辑框，或者完成编辑时会调用指定消息循环
-		/// 当开始输入时，窗口的字符回调会被替换并延迟执行（如果存在）
-		/// 不要在编辑期间修改字符回调，可能导致难以预测的错误
-		/// </summary>
-
 		class d2dEdit
 		{
-			static d2dEdit* g_CurrentFocusEdit;
-
-			D2D1_COLOR_F DefultColor = D2D1::ColorF(0.7, 0.7, 0.7);
-			D2D1_COLOR_F SelectedColor = D2D1::ColorF(0.8, 0.8, 0.8);
-			const D2D1_COLOR_F m_CursorColorF = D2D1::ColorF(0);
-
-			MainWind_D2D* m_BindedWind;
-			WindCallback::EditControlCallback m_EditCallback;
-			WindControl::d2dColorButton m_CheckRect;
-
-			WindCallback::CharInputCallback_D2D m_LastCharCallback;
-			D2D1_POINT_2F m_Indicator;
-			ID2D1SolidColorBrush* m_CursorColor;
-
-			int m_StringShiftPtr;
-			bool m_Focus;
-
-			static void StartInput(MainWind* wind,long long ptr)
+			bool m_Selseted;
+			D2D1_COLOR_F m_SelsetedColor;
+			D2D1_COLOR_F m_DefColor;
+			d2dColorButton m_CheckButton;
+			static void Selseted(MainWind* window, LONG64 data)
 			{
-				d2dEdit* thisP = (d2dEdit*)ptr;
-				if (!thisP)
+				d2dEdit* edit = (d2dEdit*)data;
+				if (!edit)
 					return;
-				thisP->UserClicks();
+				edit->Switch(dynamic_cast<MainWind_D2D*>(window));
 			}
-			static void DetectionInput(MainWind_D2D*,int input,int Fa,KeyMode mode)
+			void Switch(MainWind_D2D* window)
 			{
-				if (mode == KM_UP || !g_CurrentFocusEdit)
+				if (!window)
 					return;
-				g_CurrentFocusEdit->SetStr(mode, input);
-			}
-			void SetStr(KeyMode mode,int input)
-			{
-				auto& showStr = m_CheckRect.GetShowString();
-				switch (input)
+				if (m_Selseted)
 				{
-				case VK_BACK:
-				{
-					auto& strPtr = m_StringShiftPtr;
-					if (showStr.empty() || mode != KM_CHAR || strPtr >= showStr.size())
-						return;
-					showStr.erase(showStr.end() - strPtr - 1);
-					m_Indicator = m_CheckRect.GetTextElement().GetStringCharPosition(showStr.size() - strPtr);
-					break;
-				}
-				case VK_LEFT:
-				{
-					auto& strPtr = m_StringShiftPtr;
-					strPtr++;
-					break;
-				}
-				case VK_RIGHT:
-				{
-					auto& strPtr = m_StringShiftPtr;
-					strPtr--;
-					if (strPtr < 0)
-					{
-						strPtr = 0;
-					}
-					break;
-				}
-				default:
-				{
-					if (mode == KM_CHAR)
-					{
-						showStr.push_back(input);
-						m_Indicator = m_CheckRect.GetTextElement().GetStringCharPosition(showStr.size() - m_StringShiftPtr);
-					}
-				}
-				break;
-				}
-			}
-			void UserClicks()
-			{
-				if (m_Focus)
-				{
-					m_BindedWind->SetKeyCallback(m_LastCharCallback);
-
-					m_CheckRect.Negation(false);
-					m_CheckRect.SetBackgroundColor(DefultColor, m_BindedWind);
-					if (m_EditCallback)
-						m_EditCallback(m_BindedWind, m_CheckRect.GetShowString(), ControlMessage::LeaveControl);
-
-					g_CurrentFocusEdit = nullptr;
+					m_CheckButton.SetBackgroundColor(m_DefColor,window);
 				}
 				else
 				{
-					g_CurrentFocusEdit = this;
-
-					m_LastCharCallback = m_BindedWind->GetKeyCallback();
-					m_BindedWind->SetKeyCallback(DetectionInput);
-
-					m_CheckRect.Negation(true);
-					m_CheckRect.SetBackgroundColor(SelectedColor, m_BindedWind);
-					if (m_EditCallback)
-						m_EditCallback(m_BindedWind, m_CheckRect.GetShowString(), ControlMessage::EnterControl);
+					m_CheckButton.SetBackgroundColor(m_SelsetedColor, window);
 				}
-				m_Focus = !m_Focus;
+				m_CheckButton.Negation(m_Selseted);
+				m_Selseted = !m_Selseted;
 			}
-
 		public:
-			d2dEdit() :m_BindedWind(nullptr), m_Focus(false), m_LastCharCallback(nullptr), m_StringShiftPtr(0), m_CursorColor(nullptr)
+			d2dEdit():m_DefColor(D2D1::ColorF(0.7,0.7,0.7)),m_SelsetedColor(D2D1::ColorF(0.9, 0.9, 0.9)),
+				m_Selseted(false)
 			{
-				m_CheckRect.SetCallback(StartInput);
-				m_CheckRect.SetUserData((LONG64)this);
-				m_CheckRect.SetBakegroundFill();
-			};
-			~d2dEdit()
-			{
-				UnBind();
-				SafeRelease(&m_CursorColor);
+				m_CheckButton.SetCallback(Selseted);
+				m_CheckButton.SetUserData((LONG64)this);
 			}
-			void SetSelsetedColor()
+			void Init()
 			{
+				m_CheckButton.GetTextElement().GetStringCharPosition(1);
+			}
+			void SetText(const std::wstring& str)
+			{
+				m_CheckButton.SetShowText(str);
+			}
+			void SetShowRect(const D2D1_RECT_F& rect)
+			{
+				m_CheckButton.SetRect(rect);
+			}
 
-			}
-			const std::wstring& GetShowString()const
+			void Draw(MainWind_D2D& window)
 			{
-				return m_CheckRect.GetShowString();
+				Draw(&window);
 			}
-			std::wstring& GetShowString()
+			void Draw(MainWind_D2D* window)
 			{
-				return m_CheckRect.GetShowString();
-			}
-			void SetShowString(const std::wstring& str)
-			{
-				m_CheckRect.SetShowText(str);
-			}
-			void SetRect(const D2D1_RECT_F& rect)
-			{
-				m_CheckRect.SetRect(rect);
-			}
-			void SetEditCallback(WindCallback::EditControlCallback callback)
-			{
-				m_EditCallback = callback;
-			}
-			void RunCallback()const
-			{
-				if (m_EditCallback)
-					m_EditCallback(m_BindedWind, m_CheckRect.GetShowString(), ControlMessage::ControlMessage);
-			}
-			void Draw(MainWind_D2D* wind)
-			{
-				Draw(wind->GetD2DTargetP());
-			}
-			void Draw(ID2D1RenderTarget* wind)
-			{
-				m_CheckRect.Draw(wind);
-				if (m_CursorColor)
-					wind->DrawLine(m_Indicator, D2D1::Point2F(m_Indicator.x, m_Indicator.y + 10),m_CursorColor);
-			}
-			void Bind(MainWind_D2D* wind)
-			{
-				UnBind();
-				m_BindedWind = wind;
-				m_CheckRect.Bind(wind);
-				m_CheckRect.SetBackgroundColor(DefultColor, wind);
-				m_CheckRect.SetTextColor(D2D1::ColorF(0), wind);
-				wind->GetD2DTargetP()->CreateSolidColorBrush(m_CursorColorF, &m_CursorColor);
-			}
-			void UnBind()
-			{
-				if(!m_BindedWind)
-					return;
-				m_CheckRect.Unbind();
-				SafeRelease(&m_CursorColor);
+				m_CheckButton.Draw(window);
 			}
 		};
-		d2dEdit* d2dEdit::g_CurrentFocusEdit = nullptr;
-
 
 		class d2dPictureAnimationBase
 		{

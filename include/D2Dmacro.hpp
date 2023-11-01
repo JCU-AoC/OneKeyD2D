@@ -1,7 +1,12 @@
 #pragma once
+#ifndef OneKeyD2DMacro_HPP
+#define OneKeyD2DMacro_HPP
+
+
 #include<d2d1.h>
 #include<cmath>
 #include<random>
+#include<string>
 
 /// <summary>
 /// 释放d2d等含有Release函数的句柄
@@ -128,7 +133,7 @@ EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 #define HINST_THISCOMPONENT ((HINSTANCE)&__ImageBase)
 #endif
 
-#include<string>
+
 
 #ifdef UNICODE
     
@@ -137,12 +142,24 @@ typedef const std::wstring CSTR;
 typedef std::wstring& QSTR;
 typedef const std::wstring& CQSTR;
 
+template<typename T>
+std::wstring ToStr(T num)
+{
+    return std::to_wstring(num);
+}
+
 #else
 
 typedef std::string STR;
 typedef const std::string CSTR;
 typedef std::string& QSTR;
 typedef const std::string& CQSTR;
+
+template<typename T>
+std::string ToStr(T num)
+{
+    return std::to_string(num);
+}
 
 #endif // UNICODE
 
@@ -235,19 +252,20 @@ namespace Game {
     namespace Vector
     {
         constexpr auto PI = 3.141592653589793;
-        double AngleToRadian(double angle)
-        {
-            return angle * PI / 180;
-        }
-        double RadianToAngle(double radian)
-        {
-            return radian * 180 / PI;
-        }
+
         template<typename DataType>
         //using DataType = float;
         class Vector3
         {
         public:
+            static double AngleToRadian(double angle)
+            {
+                return angle * PI / 180;
+            }
+            static double RadianToAngle(double radian)
+            {
+                return radian * 180 / PI;
+            }
             union {
                 struct { DataType x, y, z; };
                 struct { DataType r, g, b; };
@@ -460,6 +478,14 @@ namespace Game {
         class Vector2
         {
         public:
+            static double AngleToRadian(double angle)
+            {
+                return angle * PI / 180;
+            }
+            static double RadianToAngle(double radian)
+            {
+                return radian * 180 / PI;
+            }
             union {
                 struct { DataType x, y; };
             };
@@ -703,6 +729,14 @@ namespace Game {
         class Vector4
         {
         public:
+            static double AngleToRadian(double angle)
+            {
+                return angle * PI / 180;
+            }
+            static double RadianToAngle(double radian)
+            {
+                return radian * 180 / PI;
+            }
             union {
                 struct { DataType x, y, z, w; };
                 struct { DataType r, g, b, a; };
@@ -927,20 +961,20 @@ namespace Game {
     namespace Random
     {
         using InterpolationFunction1 = float(*)(float start, float end, float factor);
-        namespace Interpolation
+        class Interpolation
         {
-            float LineInterpolation(float start,float end,float factor)
+        public:
+            static float LineInterpolation(float start, float end, float factor)
             {
-
                 return start + (end - start) * factor;
             }
-            float Smoothstep(float start, float end, float factor)
+            static float Smoothstep(float start, float end, float factor)
             {
 
                 float t = factor * factor;
                 return start + (end - start) * t * (3.0f - 2.0f * t);
             }
-        }
+        };
         
         class PerlinNoise1
         {
@@ -1052,4 +1086,19 @@ namespace Game {
             }
         };
     }
+    /// <summary>
+    /// 将连续的内存转换为指定类型数据
+    /// 返回转换后的结束位置指针
+    /// </summary>
+    /// <typeparam name="Type"></typeparam>
+    /// <param name="data">数据位置</param>
+    /// <param name="aim">输出</param>
+    /// <returns></returns>
+    template<typename Type>
+    char* ToType(char* data,Type* aim)
+    {
+        *aim = *((Type*)data);
+        return data + sizeof(*aim);
+    }
 }
+#endif // !OneKeyD2DMacro_HPP

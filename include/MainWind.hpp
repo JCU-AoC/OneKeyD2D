@@ -13,6 +13,7 @@
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"Dwrite.lib")
 //0.12 Sound
+#include <mmsystem.h>
 #pragma comment(lib,"Winmm.lib")
 
 
@@ -1319,5 +1320,167 @@ namespace Game
 		}
 	private:
 		std::vector<BYTE>m_Data;
+	};
+	class Sound
+	{
+		STR m_id;
+	public:
+
+		Sound() :m_id(std::to_wstring((long long)this)) {}
+		~Sound()
+		{
+			Close();
+		}
+		/// <summary>
+		/// 打开音频文件
+		/// </summary>
+		/// <param name="filePath"></param>
+		/// <returns></returns>
+		bool Open(CQSTR filePath)const
+		{
+			if (0 != mciSendString((TEXT("open ") + filePath + TEXT(" alias ") + m_id).c_str(), NULL, 0, NULL))
+			{
+				std::cout << "打开音频失败" << std::endl;
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 重新播放音频。
+		/// </summary>
+		/// <returns></returns>
+		bool Play()const
+		{
+			Seek(0);
+			if (0 != mciSendString((TEXT("play ") + m_id).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 循环播放音频
+		/// </summary>
+		/// <returns></returns>
+		bool RepeatPlay()const
+		{
+			if (0 != mciSendString((TEXT("play ") + m_id + TEXT(" repeat")).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 跳转到指定时刻，单位毫秒ms
+		/// </summary>
+		/// <param name="ms">毫秒</param>
+		/// <returns></returns>
+		bool Seek(int ms)const
+		{
+			if (0 != mciSendString((TEXT("seek ") + m_id + TEXT(" to ")+ToStr(ms)).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 停止播放
+		/// </summary>
+		/// <returns></returns>
+		bool Stop()const
+		{
+			if (0 != mciSendString((TEXT("stop ") + m_id).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 关闭并清空
+		/// </summary>
+		/// <returns></returns>
+		bool Close()const
+		{
+			if (0 != mciSendString((TEXT("close ") + m_id).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 暂停播放
+		/// </summary>
+		/// <returns></returns>
+		bool Pause()const
+		{
+			if (0 != mciSendString((TEXT("pause ") + m_id).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 继续播放
+		/// </summary>
+		/// <returns></returns>
+		bool Resume()const
+		{
+			if (0 != mciSendString((TEXT("resume ") + m_id).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 调节音量
+		/// </summary>
+		/// <param name="v">范围是0-1000，表示调成系统音量的v/1000，比如800是80%</param>
+		/// <returns></returns>
+		bool SetAudioVolume(int v)const
+		{
+			if (0 != mciSendString((TEXT("setaudio ") + m_id + TEXT(" volume to ") + ToStr(v)).c_str(), NULL, 0, NULL))
+			{
+				return false;
+			}
+			return true;
+		}
+		/// <summary>
+		/// 获取当前音量
+		/// </summary>
+		/// <returns></returns>
+		int GetVolume()const
+		{
+			WCHAR str[32];
+			mciSendStringW(L"status music volume", str, 32, 0);
+			return std::wcstol(str, nullptr, 32);
+		}
+		/// <summary>
+		/// 获取当前音乐长度
+		/// </summary>
+		/// <returns>单位是毫秒</returns>
+		int GetLegth()const
+		{
+			WCHAR str[32];
+			mciSendStringW(L"status music length", str, 32, 0);
+			return std::wcstol(str, nullptr, 32);
+		}
+		/// <summary>
+		/// 获取当前播放位置
+		/// </summary>
+		/// <returns></returns>
+		int GetPosition()const
+		{
+			WCHAR str[32];
+			mciSendStringW(L"status music position", str, 32, 0);
+			return std::wcstol(str, nullptr, 32);
+		}
+		/// <summary>
+		/// 获取标识符，用于对mciSendString进行更多操作
+		/// </summary>
+		/// <returns></returns>
+		const auto& GetSoundID()const
+		{
+			return m_id;
+		}
 	};
 }
