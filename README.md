@@ -35,6 +35,7 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
         "-ldwrite",
         "-lole32",
         "-lwindowscodecs",
+        "-Winmm"，
         //结束
         "-finput-charset=UTF-8",    //指定输入的文件格式
     ],
