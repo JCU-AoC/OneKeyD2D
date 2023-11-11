@@ -58,7 +58,8 @@ namespace Game
 		{
 
 		public:
-			d2dPicture() :m_Bitmap(nullptr), m_Crop({ 0,0,1,1 }), m_Transparency(1.f)
+			d2dPicture() :m_Bitmap(nullptr), m_Crop(D2D1::RectF(0, 0, 1, 1)),
+				m_Transparency(1.f), m_ImageWide(D2D1::SizeF()), originalTransform(D2D1::Matrix3x2F::Rotation(0))
 			{
 				m_Rotation = D2D1::Matrix3x2F::Rotation(0);
 			}
@@ -275,6 +276,17 @@ namespace Game
 
 				return true;
 			}
+			bool DrawInRect(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
+			{
+				if (!d2dRenderTarget || !m_Bitmap)
+					return false;
+				d2dRenderTarget->GetTransform(&originalTransform);
+				d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
+				d2dRenderTarget->DrawBitmap(m_Bitmap, rect, m_Transparency, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR, m_Crop);
+				d2dRenderTarget->SetTransform(originalTransform);
+
+				return true;
+			}
 			bool Draw(ID2D1RenderTarget* d2dRenderTarget ,const D2D1_RECT_F& crop)
 			{
 				if (!d2dRenderTarget || !m_Bitmap)
@@ -347,7 +359,9 @@ namespace Game
 			}
 			D2D1_COLOR_F&& GetColor()const
 			{
-				return m_Color->GetColor();
+				if (m_Color)
+					return m_Color->GetColor();
+				return D2D1::ColorF(0);
 			}
 			void SetOpacity(float t)
 			{
@@ -388,6 +402,10 @@ namespace Game
 			{
 				if (m_TextFormat)
 					m_TextFormat->SetParagraphAlignment(dta);
+			}
+			float GetTextFontSize()const
+			{
+				return m_TextFormat->GetFontSize();
 			}
 			void SetTextFontSize(float fsize)
 			{
@@ -527,8 +545,8 @@ namespace Game
 			bool m_Fill;
 			bool m_Round;
 		public:
-			d2dRectangle() :m_Color(nullptr), m_Fill(false), m_Round(false), 
-				m_PenWide(1), m_Rotation(D2D1::Matrix3x2F::Rotation(0))
+			d2dRectangle() :m_Color(nullptr), m_Fill(false), m_Round(false), m_Rect(D2D1::RoundedRect(D2D1::RectF(), 0, 0)),
+				m_PenWide(1), m_Rotation(D2D1::Matrix3x2F::Rotation(0)), originalTransform(D2D1::Matrix3x2F::Rotation(0))
 			{
 
 			}

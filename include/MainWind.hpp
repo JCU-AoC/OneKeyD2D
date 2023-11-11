@@ -40,7 +40,7 @@ namespace Game
 		typedef void(*CharInputCallback_GDI)(MainWind_GDI*, int KeyInputChar, int Frequency, KeyMode);
 		typedef void(*PaintCallback_GDI)(MainWind_GDI*);
 		typedef void(*SizeCallback_GDI)(MainWind_GDI*, int width, int height);
-		typedef void(*CharInputCallback_D2D)(MainWind_D2D*, int KeyInputChar, int Frequency, KeyMode);
+		typedef void(*CharInputCallback_D2D)(MainWind_D2D* window, int KeyInputChar, int Frequency, KeyMode mode);
 		typedef void(*PaintCallback_D2D)(MainWind_D2D*);
 		typedef void(*SizeCallback_D2D)(MainWind_D2D*, int width, int height);
 
@@ -54,15 +54,15 @@ namespace Game
 		class d2dClickDetection
 		{
 		private:
-			float m_X;
-			float m_Y;
-			float m_RightX;
-			float m_RightY;
+			float m_X,m_Y;
+			float m_RightX, m_RightY;
 			LONG64 m_UserData;
 			WindCallback::ButtonCallback m_Callback;
-			bool m_Negation;
+			bool m_Negation, m_Elliptic, m_Border;
 		public:
-			d2dClickDetection(float x = 0, float y = 0, float w = 0, float h = 0) :m_RightX(x + w), m_RightY(h + y), m_UserData(0), m_Negation(false)
+			d2dClickDetection(float x = 0, float y = 0, float w = 0, float h = 0) :
+				m_RightX(x + w), m_RightY(h + y), m_UserData(0),
+				m_Negation(false), m_Callback(nullptr), m_Elliptic(false), m_Border(false)
 			{
 				m_X = x;
 				m_Y = y;
@@ -70,6 +70,10 @@ namespace Game
 			void Negation(bool negation = true)
 			{
 				m_Negation = negation;
+			}
+			void Elliptic(bool elliptic = true)
+			{
+				m_Elliptic = elliptic;
 			}
 			void SetUserData(LONG64 data)
 			{
@@ -111,15 +115,58 @@ namespace Game
 			}
 			bool CheckClick(float x, float y)const
 			{
-				if (x<m_X || y<m_Y || x>m_RightX || y> m_RightY)
+				if (m_Border)
 				{
+					if (x <= m_X || y <= m_Y || x >= m_RightX || y >= m_RightY)
+					{
+						if (m_Negation)
+							return true;
+						return false;
+					}
+					if (m_Elliptic)
+					{
+						float halfWidth = (m_RightX - m_X) * 0.5;
+						float halfHeight = (m_RightY - m_Y) * 0.5;
+						float normalizedX = x - m_X - halfWidth;
+						float normalizedY = y - m_Y - halfHeight;
+						bool insideEllipse = (normalizedX * normalizedX) / (halfWidth * halfWidth) + (normalizedY * normalizedY) / (halfHeight * halfHeight) <= 1;
+						if (m_Negation) {
+							return !insideEllipse;
+						}
+						else {
+							return insideEllipse;
+						}
+					}
 					if (m_Negation)
-						return true;
-					return false;
+						return false;
+					return true;
 				}
-				if (m_Negation)
-					return false;
-				return true;
+				else
+				{
+					if (x<m_X || y<m_Y || x>m_RightX || y> m_RightY)
+					{
+						if (m_Negation)
+							return true;
+						return false;
+					}
+					if (m_Elliptic)
+					{
+						float halfWidth = (m_RightX - m_X) * 0.5;
+						float halfHeight = (m_RightY - m_Y) * 0.5;
+						float normalizedX = x - m_X - halfWidth;
+						float normalizedY = y - m_Y - halfHeight;
+						bool insideEllipse = (normalizedX * normalizedX) / (halfWidth * halfWidth) + (normalizedY * normalizedY) / (halfHeight * halfHeight) < 1;
+						if (m_Negation) {
+							return !insideEllipse;
+						}
+						else {
+							return insideEllipse;
+						}
+					}
+					if (m_Negation)
+						return false;
+					return true;
+				}
 			}
 			void SetButtonCallback(WindCallback::ButtonCallback bc)
 			{
@@ -145,6 +192,7 @@ namespace Game
 		HWND m_hWnd;
 		HINSTANCE m_hInstance;
 		LPARAM m_UserData;
+		LONG_PTR m_SystemData;
 
 		WindCallback::MouseCallback m_MouseCallback;
 		std::set<WindElements::d2dClickDetection*>m_Buttons;
@@ -227,9 +275,19 @@ namespace Game
 		}
 	public:
 
-		MainWind() : m_hWnd(nullptr), m_hInstance(nullptr), m_UserData(0),m_MouseCallback(nullptr),m_ButtonChange(false) {}
+		MainWind() : m_hWnd(nullptr), m_hInstance(nullptr), m_UserData(0),m_MouseCallback(nullptr),m_ButtonChange(false),m_SystemData(0) {}
 		virtual ~MainWind(){}
 		virtual HRESULT CreateWind(HWND parent = nullptr, HINSTANCE hInstance = HINST_THISCOMPONENT) = 0;
+
+		/// <summary>
+		/// 由系统调用，不开放使用
+		/// 有需要使用UserData
+		/// </summary>
+		/// <returns></returns>
+		LONG_PTR& GetSystemData()
+		{
+			return m_SystemData;
+		}
 
 		void SetMouseCallback(WindCallback::MouseCallback mcb)
 		{
@@ -772,6 +830,7 @@ namespace Game
 				m_PaintCallback(this);
 			// 如果你的程序卡住了，暂停跳转到了这里，
 			// 多半是出现了逻辑错误（而且指针非法访问的错误可能也不会报，要自己找）
+			// 特别注意对容器的操作
 			m_d2dRenderTarget->EndDraw();
 			m_LastPaintTime = m_NowTime;
 			return;
@@ -864,7 +923,7 @@ namespace Game
 	public:
 		MainWind_D2D() :m_d2dFactory(nullptr), m_d2dRenderTarget(nullptr), m_PenBrush(nullptr), m_LastPoint({ 0,0 }),
 			m_PenStyle(nullptr), m_PenWidth(1), m_CharCallback(nullptr), m_PaintCallback(nullptr), m_WindSizeCallback(nullptr),
-			m_TextFormat(nullptr), m_LastPaintTime(),m_NowTime(),m_BackgroundColor(nullptr)
+			m_TextFormat(nullptr), m_LastPaintTime(), m_NowTime(), m_BackgroundColor(nullptr), m_IntervalTime(0)
 		{
 			WindCount::g_d2dMainWindCount++;
 		}
@@ -1144,7 +1203,8 @@ namespace Game
 				return false;
 			ID2D1PathGeometry* pGeometry = NULL;
 			m_d2dFactory->CreatePathGeometry(&pGeometry);
-			
+			if (!pGeometry)
+				return false;
 			// 打开路径几何图形进行绘图
 			ID2D1GeometrySink* pSink = NULL;
 			pGeometry->Open(&pSink);

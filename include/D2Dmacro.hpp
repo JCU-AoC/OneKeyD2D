@@ -2,6 +2,7 @@
 #ifndef OneKeyD2DMacro_HPP
 #define OneKeyD2DMacro_HPP
 
+#define NOMINMAX
 
 #include<d2d1.h>
 #include<cmath>
@@ -268,7 +269,6 @@ namespace Game {
             }
             union {
                 struct { DataType x, y, z; };
-                struct { DataType r, g, b; };
             };
             Vector3() :x(0), y(0), z(0) {}
             Vector3(const DataType& val) :x(val), y(val), z(val) {}
@@ -622,6 +622,11 @@ namespace Game {
             {
                 return vec1.LinearInterpolation(vec2, factor);
             }
+            template<typename Type2>
+            static Vector2<DataType> ToType(const Vector2<Type2>& data)
+            {
+                return Vector2(data.x, data.y);
+            }
             Vector2 operator-(const Vector2& vec)const
             {
                 return Subtract(vec);
@@ -739,7 +744,6 @@ namespace Game {
             }
             union {
                 struct { DataType x, y, z, w; };
-                struct { DataType r, g, b, a; };
             };
             Vector4() :x(0), y(0), z(0), w(0) {}
             Vector4(const DataType& val) :x(val), y(val), z(val), w(val) {}
@@ -975,7 +979,26 @@ namespace Game {
                 return start + (end - start) * t * (3.0f - 2.0f * t);
             }
         };
-        
+        class GetRandom
+        {
+            std::random_device rd;
+            std::mt19937 gen;
+            std::uniform_int_distribution<> dis;
+        public:
+            GetRandom(int Min, int Max) :rd(), gen(rd()), dis(Min, Max) {}
+            int GetMin()const
+            {
+                return dis.min();
+            }
+            int GetMax()const
+            {
+                return dis.max();
+            }
+            int Random()
+            {
+                return dis(gen);
+            }
+        };
         class PerlinNoise1
         {
             int m_min, m_max, m_count;

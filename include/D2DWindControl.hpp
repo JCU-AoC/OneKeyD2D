@@ -22,6 +22,10 @@ namespace Game {
 			{
 				Unbind();
 			}
+			MainWind_D2D* GetBindedWindow()const
+			{
+				return m_TargetWind;
+			}
 			void Init(float x, float y, float w, float h,
 				const std::wstring& str,const D2D1_COLOR_F& strColor,
 				WindCallback::ButtonCallback callback, MainWind_D2D* TargetWind,
@@ -61,6 +65,10 @@ namespace Game {
 			{
 				return m_CheckRect.GetUserData();
 			}
+			const LONG64& GetUserData()const
+			{
+				return m_CheckRect.GetUserData();
+			}
 			void Negation(bool negation = true)
 			{
 				m_CheckRect.Negation(negation);
@@ -83,6 +91,15 @@ namespace Game {
 				m_BackgroundImage.SetShowRect(rect);
 				m_ShowText.SetShowRect(rect);
 			}
+			void Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
+			{
+				Draw(d2dWind->GetD2DTargetP(), rect);
+			}
+			void Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
+			{
+				m_BackgroundImage.DrawInRect(d2dRenderTarget, rect);
+				m_ShowText.Draw(d2dRenderTarget, rect);
+			}
 			void Draw(MainWind_D2D* wind)
 			{
 				m_BackgroundImage.Draw(wind);
@@ -100,14 +117,6 @@ namespace Game {
 			void SetCallback(WindCallback::ButtonCallback cb)
 			{
 				m_CheckRect.SetButtonCallback(cb);
-			}
-			void LinkWindow(MainWind_D2D* wind)
-			{
-				wind->AddButten(&m_CheckRect);
-			}
-			void DisconnectWindow(MainWind_D2D* wind)
-			{
-				wind->DeleteButten(&m_CheckRect);
 			}
 			void SetShowText(const std::wstring& str)
 			{
@@ -133,6 +142,20 @@ namespace Game {
 			{
 				return m_ShowText.GetColor();
 			}
+			D2D1_RECT_F GetShowRect()const
+			{
+				return m_CheckRect.GetRectangle();
+			}
+			D2D1_SIZE_F GetShowSize()const
+			{
+				auto rect = m_CheckRect.GetRectangle();
+				return D2D1::SizeF(rect.right - rect.left, rect.bottom - rect.top);
+			}
+			D2D1_POINT_2F GetShowPosition()const
+			{
+				auto rect = m_CheckRect.GetRectangle();
+				return D2D1::Point2F(rect.left, rect.top);
+			}
 		};
 		/// <summary>
 		/// 已色块矩形为背景的按钮
@@ -148,6 +171,10 @@ namespace Game {
 			~d2dColorButton()
 			{
 				Unbind();
+			}
+			MainWind_D2D* GetBindedWindow()const
+			{
+				return m_TargetWind;
 			}
 			void Init(float x, float y, float w, float h, 
 				const std::wstring& str, 
@@ -236,14 +263,6 @@ namespace Game {
 			{
 				m_CheckRect.SetButtonCallback(cb);
 			}
-			void LinkWindow(MainWind_D2D* wind)
-			{
-				wind->AddButten(&m_CheckRect);
-			}
-			void DisconnectWindow(MainWind_D2D* wind)
-			{
-				wind->DeleteButten(&m_CheckRect);
-			}
 			void SetShowText(const std::wstring& str)
 			{
 				m_ShowText.SetShowText(str);
@@ -279,6 +298,20 @@ namespace Game {
 			D2D1_COLOR_F&& GetBackgroundColor()const
 			{
 				return m_Rectangle.GetColor();
+			}
+			D2D1_RECT_F GetShowRect()const
+			{
+				return m_CheckRect.GetRectangle();
+			}
+			D2D1_SIZE_F GetShowSize()const
+			{
+				auto rect = m_CheckRect.GetRectangle();
+				return D2D1::SizeF(rect.right - rect.left, rect.bottom - rect.top);
+			}
+			D2D1_POINT_2F GetShowPosition()const
+			{
+				auto rect = m_CheckRect.GetRectangle();
+				return D2D1::Point2F(rect.left, rect.top);
 			}
 		};
 
@@ -597,15 +630,15 @@ namespace Game {
 					float xMin = xList.front(), xMax = xList.front(), yMin = yList.front(), yMax = yList.front();
 					for (auto&& f : xList)
 					{
-						xMin = min(f, xMin);
-						xMax = max(f, xMax);
+						xMin = std::min(f, xMin);
+						xMax = std::max(f, xMax);
 					}
 					for (auto&& f : yList)
 					{
-						yMin = min(f, yMin);
-						yMax = max(f, yMax);
+						yMin = std::min(f, yMin);
+						yMax = std::max(f, yMax);
 					}
-					SetCoordinate(xMin, xMax, max((xMax - xMin) / xList.size(), (xMax - xMin) / 5), yMin, yMax, max((yMax - yMin) / yList.size(), (yMax - yMin) / 5), tar);
+					SetCoordinate(xMin, xMax, std::max((xMax - xMin) / xList.size(), (xMax - xMin) / 5), yMin, yMax, std::max((yMax - yMin) / yList.size(), (yMax - yMin) / 5), tar);
 				}
 				m_LineList[id] = std::make_pair(xList, yList);
 				m_Data[id] = WindElements::d2dFoldLine();
@@ -704,12 +737,29 @@ namespace Game {
 			}
 		};
 
-		class d2dEdit
+		/// <summary>
+		/// 虚函数
+		/// </summary>
+		class d2dFocusControl
 		{
+		public:
+			virtual void Switch(MainWind_D2D* window) = 0;
+		};
+		/// <summary>
+		/// 纯色背景编辑框
+		/// </summary>
+		class d2dEdit :d2dFocusControl
+		{
+		private:
 			bool m_Selseted;
+			int m_CursorPosition;
 			D2D1_COLOR_F m_SelsetedColor;
 			D2D1_COLOR_F m_DefColor;
 			d2dColorButton m_CheckButton;
+
+			WindElements::d2dFoldLine m_CursorLine;
+
+			WindCallback::CharInputCallback_D2D m_DefKeyCallback;
 			static void Selseted(MainWind* window, LONG64 data)
 			{
 				d2dEdit* edit = (d2dEdit*)data;
@@ -717,48 +767,237 @@ namespace Game {
 					return;
 				edit->Switch(dynamic_cast<MainWind_D2D*>(window));
 			}
-			void Switch(MainWind_D2D* window)
+			static void CharInput(MainWind_D2D* window,int key,int vir,KeyMode mode)
+			{
+				d2dEdit* edit = (d2dEdit*)window->GetSystemData();
+				if (!edit)
+					return;
+				edit->CharInput(key, mode);
+			}
+			void CharInput(int key, KeyMode mode)
+			{
+				if (mode != KM_CHAR)
+				{
+					if (mode == KM_DOWN)
+						CursorMove(key);
+					return;
+				}
+				auto& str = m_CheckButton.GetShowString();
+				switch (key)
+				{
+				case VK_BACK:
+				{
+					if (str.empty() || m_CursorPosition <= 0)
+						break;
+					str.erase(m_CursorPosition - 1, 1);
+					SetCursorPosition(m_CursorPosition - 1);			
+					SetCursor();
+					break;
+				}
+				case '\r':
+				{
+					Switch(m_CheckButton.GetBindedWindow());
+
+					break;
+				}
+				default:
+					str.insert(m_CursorPosition,1, key);
+					SetCursorPosition(m_CursorPosition + 1);
+					SetCursor();
+					break;
+				}
+			}
+			void CursorMove(int key)
+			{
+				switch (key)
+				{
+				case VK_LEFT:
+				{
+					if (m_CursorPosition > 0)
+						m_CursorPosition--;
+					SetCursor();
+					break;
+				}
+				case VK_RIGHT:
+				{
+					if (m_CursorPosition < m_CheckButton.GetShowString().size())
+						m_CursorPosition++;
+					SetCursor();
+					break;
+				}
+				default:
+					break;
+				}
+			}
+			void Switch(MainWind_D2D* window)override
 			{
 				if (!window)
 					return;
+				auto& systemData = window->GetSystemData();
 				if (m_Selseted)
 				{
 					m_CheckButton.SetBackgroundColor(m_DefColor,window);
+					auto* Fptr = CharInput;
+					if (window->GetKeyCallback() != Fptr)
+					{
+						std::cout<<"在控件捕获字符输入过程中对字符回调进行了修改\n这可能会导致未知错误！" << std::endl;
+					}
+					window->SetKeyCallback(m_DefKeyCallback);
+					systemData = 0;
+					m_CursorLine.SetFoldLine({});
 				}
 				else
 				{
+					if (systemData != 0)
+					{
+						d2dFocusControl* control = (d2dFocusControl*)systemData;
+						control->Switch(window);
+					}
 					m_CheckButton.SetBackgroundColor(m_SelsetedColor, window);
+					m_DefKeyCallback = window->GetKeyCallback();
+					window->SetKeyCallback(CharInput);
+					systemData = (long long)this;
+					SetCursor();
 				}
-				m_CheckButton.Negation(m_Selseted);
 				m_Selseted = !m_Selseted;
+				m_CheckButton.Negation(m_Selseted);
+			}
+			void SetCursor()
+			{
+				auto pos = m_CheckButton.GetTextElement().GetStringCharPosition(m_CursorPosition);
+				auto editPos = m_CheckButton.GetShowPosition();
+				editPos.x += pos.x;
+				editPos.y += pos.y;
+				m_CursorLine.SetFoldLine({ editPos.x ,editPos.x }, { editPos.y ,editPos.y + m_CheckButton.GetTextElement().GetTextFontSize() + 5 });
 			}
 		public:
-			d2dEdit():m_DefColor(D2D1::ColorF(0.7,0.7,0.7)),m_SelsetedColor(D2D1::ColorF(0.9, 0.9, 0.9)),
-				m_Selseted(false)
+			d2dEdit() :m_DefColor(D2D1::ColorF(0.7, 0.7, 0.7)), m_SelsetedColor(D2D1::ColorF(0.9, 0.9, 0.9)),
+				m_Selseted(false), m_DefKeyCallback(nullptr), m_CursorPosition(0)
 			{
 				m_CheckButton.SetCallback(Selseted);
 				m_CheckButton.SetUserData((LONG64)this);
 			}
-			void Init()
+			void Init(MainWind_D2D* window, const std::wstring& ShowText = L"")
 			{
-				m_CheckButton.GetTextElement().GetStringCharPosition(1);
+				m_CheckButton.Init(0, 0, 0, 0, L"", D2D1::ColorF(0), m_DefColor, Selseted, window, (long long)this);
+				m_CheckButton.GetShowString() = ShowText;
+				m_CursorLine.SetColor(D2D1::ColorF(0), window->GetD2DTargetP());
+				
+				m_CursorLine.SetFoldLine({ D2D1::Point2F(0) });
+			}
+			void SetCursorPosition(int CuPos)
+			{
+				auto size = m_CheckButton.GetShowString().size();
+				if (CuPos < 0)
+				{
+					m_CursorPosition = 0;
+				}
+				else if (CuPos > size)
+				{
+					m_CursorPosition = size;
+				}
+				else
+				{
+					m_CursorPosition = CuPos;
+				}
 			}
 			void SetText(const std::wstring& str)
 			{
 				m_CheckButton.SetShowText(str);
+				m_CursorPosition = str.size();
 			}
+			std::wstring& GetText()
+			{
+				return m_CheckButton.GetShowString();
+			}
+			const std::wstring& GetText()const
+			{
+				return m_CheckButton.GetShowString();
+			}
+			/// <summary>
+			/// 设置显示位置
+			/// </summary>
+			/// <param name="rect"></param>
 			void SetShowRect(const D2D1_RECT_F& rect)
 			{
 				m_CheckButton.SetRect(rect);
 			}
-
+			/// <summary>
+			/// 与窗口绑定
+			/// </summary>
+			/// <param name="window"></param>
+			void Bind(MainWind_D2D* window)
+			{
+				m_CheckButton.Bind(window);
+			}
+			/// <summary>
+			/// 与窗口解绑
+			/// </summary>
+			void Unbind()
+			{
+				if (m_Selseted)
+				{
+					Switch(m_CheckButton.GetBindedWindow());
+				}
+				m_CheckButton.Unbind();
+			}
+			/// <summary>
+			/// 绘制
+			/// </summary>
+			/// <param name="window"></param>
 			void Draw(MainWind_D2D& window)
 			{
 				Draw(&window);
 			}
+			/// <summary>
+			/// 绘制
+			/// </summary>
+			/// <param name="window"></param>
 			void Draw(MainWind_D2D* window)
 			{
 				m_CheckButton.Draw(window);
+				m_CursorLine.Draw(window);
+			}
+			/// <summary>
+			/// 设置文本颜色
+			/// </summary>
+			/// <param name="color">使用D2D1::ColorF()函数创建</param>
+			/// <param name="window"></param>
+			void SetTextColor(const D2D1_COLOR_F& color,MainWind_D2D* window)
+			{
+				m_CheckButton.SetTextColor(color, window);
+			}
+			/// <summary>
+			/// 设置未选中时背景颜色
+			/// </summary>
+			/// <param name="color"></param>
+			/// <param name="window"></param>
+			void SetDefBKColor(const D2D1_COLOR_F& color, MainWind_D2D* window = nullptr)
+			{
+				m_DefColor = color;
+				if (window)
+					if (!m_Selseted)
+						m_CheckButton.SetBackgroundColor(color, window);
+			}
+			/// <summary>
+			/// 设置选中后的背景色
+			/// </summary>
+			/// <param name="color"></param>
+			void SetSelectedBKColor(const D2D1_COLOR_F& color, MainWind_D2D* window = nullptr)
+			{
+				m_SelsetedColor = color;
+				if (window)
+					if (m_Selseted)
+						m_CheckButton.SetBackgroundColor(color, window);
+			}
+			/// <summary>
+			/// 设置光标颜色
+			/// </summary>
+			/// <param name="color"></param>
+			/// <param name="window"></param>
+			void SetCursorColor(const D2D1_COLOR_F& color, MainWind_D2D* window)
+			{
+				m_CursorLine.SetColor(color, window->GetD2DTargetP());
 			}
 		};
 
@@ -771,7 +1010,7 @@ namespace Game {
 			int m_CurrentPicture;
 			float m_Opacity;
 		public:
-			d2dPictureAnimationBase():m_CurrentTime(0),m_SwitchTime(1000),m_CurrentPicture(0),m_Opacity(1){}
+			d2dPictureAnimationBase():m_CurrentTime(0),m_SwitchTime(1000),m_CurrentPicture(0),m_Opacity(1),m_ShowRect(D2D1::RectF()){}
 			void SetShowPosition(const Vector::Vec2& pos)
 			{
 				float wDifference = pos.x - m_ShowRect.left;

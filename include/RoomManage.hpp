@@ -1,6 +1,5 @@
 #pragma once
 #include<vector>
-
 #include <set>
 #include<map>
 namespace Game {
@@ -64,7 +63,7 @@ namespace Game {
 		}
 		void SetAngle(float angle)
 		{
-			m_Data.z = Vector::Vec3::AngleToRadian(angle);
+			m_Data.z = (float)Vector::Vec3::AngleToRadian(angle);
 		}
 		Vector::Vec2 GetPoint()const
 		{
@@ -76,7 +75,7 @@ namespace Game {
 		}
 		float GetAngle()const
 		{
-			return Vector::Vec2::RadianToAngle(m_Data.z);
+			return (float)Vector::Vec2::RadianToAngle(m_Data.z);
 		}
 		Rotate2D operator*(const Rotate2D& rotate)
 		{
@@ -113,7 +112,7 @@ namespace Game {
 		float m_Opacity;
 
 		virtual void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera) = 0;
-		virtual void Init(Game::MainWind_D2D* wind) = 0;
+		virtual void Init(Game::MainWind_D2D* wind) {}
 		virtual void Silent(Game::MainWind_D2D* wind) {}
 		virtual void WindowSizeChange(int w, int h) {}
 	public:
@@ -199,7 +198,7 @@ namespace Game {
 	protected:
 		Camera2D m_Camera;
 	public:
-		Room() :m_RoomKeyCallback(nullptr), m_MouseCallback(nullptr), m_RoomUserData(0),
+		Room() :m_RoomKeyCallback(nullptr), m_MouseCallback(nullptr), m_RoomUserData(0), m_ClearColor(0), m_BKClearRun(false),
 			m_SizeCallback(nullptr), m_UserWindowDrawCallback(nullptr), m_BindedRoomManage(nullptr) {}
 		virtual ~Room()
 		{
@@ -231,7 +230,7 @@ namespace Game {
 		{
 			if (!obj)
 				return -2;
-			for (long long i = 0; i < m_Objects.size(); ++i)
+			for (unsigned long long i = 0; i < m_Objects.size(); ++i)
 			{
 				if (m_Objects[i] == obj)
 				{
@@ -274,6 +273,8 @@ namespace Game {
 		/// <param name="obj"></param>
 		void AddObject(RoomObject* obj)
 		{
+			if (!obj)
+				return;
 			if (FindObj(obj) == -1)
 				m_Objects.push_back(obj);
 		}
@@ -310,6 +311,8 @@ namespace Game {
 		}
 		void GotoRoom(MainWind_D2D* window)
 		{
+			Start();
+
 			auto windowSize = window->GetWindSize();
 			for (auto& o : m_Objects)
 			{
@@ -322,7 +325,6 @@ namespace Game {
 			window->SetMouseCallback(StaticMouseCallback);
 			window->SetWindSizeCallback(StaticSizeCallback);
 
-			Start();
 		}
 		void SetRoomKeyCallback(RoomCallback::RoomKeyCallback callback)
 		{
@@ -355,7 +357,14 @@ namespace Game {
 			{
 				o->Silent(window);
 			}
+			End();
 		}
+		template <typename AimRoom>
+		AimRoom* ToRoom()
+		{
+			return dynamic_cast<AimRoom*>(this);
+		}
+
 
 		virtual void Start(){}
 		virtual void Update(float IntervalTime) {};
@@ -371,10 +380,10 @@ namespace Game {
 		MainWind_D2D* m_wind;
 		long long m_UserData;
 	public:
-		RoomManage(MainWind_D2D* m_wind) :m_CurrentRoom(nullptr), m_wind(m_wind)
+		RoomManage(MainWind_D2D* m_wind) :m_CurrentRoom(nullptr), m_wind(m_wind), m_UserData(0)
 		{
 		}
-		RoomManage(MainWind_D2D& m_wind) :m_CurrentRoom(nullptr), m_wind(&m_wind)
+		RoomManage(MainWind_D2D& m_wind) :m_CurrentRoom(nullptr), m_wind(&m_wind), m_UserData(0)
 		{
 		}
 		void SetWind(MainWind_D2D* m_wind)
@@ -423,7 +432,6 @@ namespace Game {
 			}
 			if (m_CurrentRoom)
 			{
-				m_CurrentRoom->End();
 				m_CurrentRoom->LeaveRoom(m_wind);
 			}
 			m_wind->DeleteButten();
@@ -646,13 +654,20 @@ namespace Game {
 				Shift.y *= yScale;
 				return Shift;
 			}
+			static Vector::Vec2 WindowToScence(const Vector::Vec2& pos, MainWind* wind, const Camera2D& camera)
+			{
+				auto WindowSize = wind->GetWindSize();
+				auto Shift = Vector::Vec2(pos.x / WindowSize.cx, pos.y / WindowSize.cy);
+				auto CameraShift = (camera.m_ShowWide * (Shift - Vector::Vec2(0.5)));
+				return Vector::Vec2(camera.m_Position.x + CameraShift.x, camera.m_Position.y - CameraShift.y);
+;			}
 		};
 
 		class ImageUI :public RoomUI
 		{
 			WindElements::d2dPicture* m_Image;
 		public:
-			ImageUI()
+			ImageUI():m_Image(nullptr)
 			{}
 			~ImageUI()
 			{}
@@ -669,6 +684,28 @@ namespace Game {
 			}
 		};
 
+		/// <summary>
+		/// 把数据与ui打包到一起
+		/// 不用手动绑定数据了
+		/// 但是也失去了低占用的功能
+		/// </summary>
+		class ImageUIPack :public RoomUI
+		{
+			ImageUI m_UI;
+		public:
+			WindElements::d2dPicture m_Data;
+			ImageUIPack()
+			{
+				m_UI.Bind(&m_Data);
+			}
+			void Init(Game::MainWind_D2D* m_wind)override {}
+			void Draw(MainWind_D2D* m_wind, const Camera2D& camera)override
+			{
+				m_UI.SetShowRect(m_ShowRectangle);
+				m_UI.Draw(m_wind, camera);
+			}
+		};
+
 		class TextUI :public RoomUI
 		{
 			Game::MainWind_D2D* m_wind;
@@ -677,7 +714,7 @@ namespace Game {
 			TextUI():m_wind(nullptr){}
 			void SetColor(const Vector::Vec3& color, Game::MainWind_D2D* wind)
 			{
-				SetColor(D2D1::ColorF(color.r, color.g, color.b), wind);
+				SetColor(D2D1::ColorF(color.x, color.y, color.z), wind);
 			}
 			void SetColor(const D2D1_COLOR_F& color, Game::MainWind_D2D* wind)
 			{
@@ -687,6 +724,10 @@ namespace Game {
 			{
 				m_text.SetShowText(str);
 			}
+			void SetFontSize(float size)
+			{
+				m_text.SetTextFontSize(size);
+			}
 			void SetRotate(float angle, const Vector::Vec2& point = Vector::Vec2())
 			{
 				m_text.SetRotate(angle, point.ToPointD2D());
@@ -694,7 +735,7 @@ namespace Game {
 			void Init(Game::MainWind_D2D* wind)override 
 			{
 				m_wind = wind;
-				auto&& tar = m_wind->GetD2DTargetP();
+				m_text.SetColor(m_text.GetColor(), wind->GetD2DTargetP());
 			}
 			void Draw(MainWind_D2D* wind, const Camera2D&)override
 			{
@@ -784,6 +825,58 @@ namespace Game {
 				return m_Button.GetUserData();
 			}
 		};
+
+		class ImageButtonUI :public RoomUI
+		{
+			WindControl::d2dImageButton m_Button;
+
+			void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera)override
+			{
+				m_Button.Draw(wind, m_ShowRectangle);
+			}
+			void Init(Game::MainWind_D2D* wind)override
+			{
+				m_Button.Bind(wind);
+			}
+			void Silent(Game::MainWind_D2D* wind)override
+			{
+				m_Button.Unbind();
+			}
+			void WindowSizeChange(int w, int h)override
+			{
+				if (m_UseForUIRect)
+					m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
+				m_Button.SetRect(m_ShowRectangle);
+			}
+		public:
+			ImageButtonUI()
+			{
+			}
+			/// <summary>
+			/// 初始化
+			/// </summary>
+			/// <param name="wind">任意有效窗口</param>
+			/// <param name="ShowText">要显示的文本</param>
+			/// <param name="callBack">点击后的回调</param>
+			/// <param name="TextColor">文本颜色</param>
+			/// <param name="bkColor">背景颜色</param>
+			void Init(Game::MainWind_D2D* wind, const std::wstring& ShowText, WindCallback::ButtonCallback callBack,const std::wstring& bkImageFile, const D2D1_COLOR_F& TextColor = D2D1::ColorF(0))
+			{
+				m_Button.Init(0, 0, 0, 0, ShowText, TextColor, callBack, wind, bkImageFile);
+			}
+			void SetUserData(long long data)
+			{
+				m_Button.SetUserData(data);
+			}
+			LONG64& GetUserData()
+			{
+				return m_Button.GetUserData();
+			}
+			const LONG64& GetUserData()const
+			{
+				return m_Button.GetUserData();
+			}
+		};
 		/// <summary>
 		/// 设置图片到场景
 		/// </summary>
@@ -792,7 +885,7 @@ namespace Game {
 			D2D1_RECT_F m_Crop;
 			WindElements::d2dPicture* m_Image;
 		public:
-			Image(){}
+			Image():m_Crop(D2D1::RectF(0,0,1,1)),m_Image(nullptr){}
 			void SetMapData(WindElements::d2dPicture* image)
 			{
 				m_Image = image;
@@ -816,6 +909,8 @@ namespace Game {
 				Point1 = CameraToWindow(Point1, wind, Camera);
 
 				Point2 = CameraToWindow(Point2, wind, Camera);
+
+				//m_Image->SetRotate(m_Rotate.GetRadian(), m_Rotate.GetPoint().ToPointD2D());
 				m_Image->SetShowRect({ Point1.x, Point1.y,Point2.x,Point2.y });
 				m_Image->SetOpacity(m_Opacity);
 				m_Image->Draw(wind->GetD2DTargetP(), m_Crop);
@@ -882,6 +977,10 @@ namespace Game {
 				}
 			}
 
+			void DeleteAllTileMap()
+			{
+				m_TileIndex.clear();
+			}
 			void DeleteTileMap(const Vector::Vector2<int>& pos)
 			{
 				m_TileIndex.erase(pos);
@@ -951,13 +1050,32 @@ namespace Game {
 		class Animation :public RoomScence
 		{
 			WindControl::d2dPictureAnimationBase* m_AnimationData;
+			int m_CurrentIndex;
+			std::vector<int>m_Index;
+			float m_SwitchTime;
+			float m_CurrentTime;
 		public:
-			Animation():m_AnimationData(nullptr){}
+			Animation() :m_AnimationData(nullptr), m_SwitchTime(100), m_CurrentTime(0), m_CurrentIndex(0) {}
 			void SetData(WindControl::d2dPictureAnimationBase* data)
 			{
 				m_AnimationData = data;
 			}
-
+			void SetIndex(const std::vector<int>& Index)
+			{
+				m_Index = Index;
+			}
+			void SetSwitchTime(float ms)
+			{
+				m_SwitchTime = ms;
+			}
+			void NextPicture()
+			{
+				++m_CurrentIndex;
+				if (m_CurrentIndex >= m_Index.size())
+				{
+					m_CurrentIndex = 0;
+				}
+			}
 			void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera)override
 			{
 				if (!wind || (!m_AnimationData))
@@ -965,6 +1083,14 @@ namespace Game {
 				m_AnimationData->SetShowPosition(ScenceToWindow(m_Position, wind, Camera));
 				m_AnimationData->SetShowWide(CameraToWindow(m_Wide, wind, Camera));
 				m_AnimationData->SetOpacity(m_Opacity);
+
+				m_CurrentTime += wind->GetPaintIntervalTime();
+				while(m_CurrentTime > m_SwitchTime)
+				{
+					NextPicture();
+					m_CurrentTime -= m_SwitchTime;
+				}
+				m_AnimationData->ToPicture(m_Index[m_CurrentIndex], false);
 				m_AnimationData->Draw(wind);
 
 			}
@@ -973,6 +1099,7 @@ namespace Game {
 
 			}
 		};
+
 	};
 	namespace RoomObjTool
 	{
@@ -1010,7 +1137,7 @@ namespace Game {
 			{
 				if (num > 8)
 				{
-					std::runtime_error("传入了无法处理的参数");
+					std::runtime_error error("传入了无法处理的参数");
 					return rb;
 				}
 				switch (num)
@@ -1042,7 +1169,7 @@ namespace Game {
 			{
 				if (num > 8)
 				{
-					std::runtime_error("传入了无法处理的参数");
+					std::runtime_error error("传入了无法处理的参数");
 					return rb;
 				}
 				switch (num)
@@ -1090,9 +1217,28 @@ namespace Game {
 		public:
 
 			TileMapTool() { }
-			void SetMap(const std::map<Vector::Vec2i, bool>& Map)
+			void SetMapData(const std::map<Vector::Vec2i, bool>& Map)
 			{
 				m_MapData = Map;
+			}
+			void SetMapData(const std::vector<Vector::Vec2i>& Map)
+			{
+				m_MapData.clear();
+				for (auto& i : Map)
+				{
+					m_MapData.insert(std::make_pair(i, true));
+				}
+			}
+			void SetMapData(const std::map<Vector::Vec2i, int>& Map, int ValidValue)
+			{
+				m_MapData.clear();
+				for (auto& i : Map)
+				{
+					if (i.second == ValidValue)
+					{
+						m_MapData.insert(std::make_pair(i.first, true));
+					}
+				}
 			}
 			void AddRule(const TileMapType& tmt)
 			{
