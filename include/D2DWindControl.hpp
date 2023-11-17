@@ -138,7 +138,7 @@ namespace Game {
 			{
 				m_ShowText.SetColor(color, wind);
 			}
-			D2D1_COLOR_F&& GetTextColor()const
+			D2D1_COLOR_F GetTextColor()const
 			{
 				return m_ShowText.GetColor();
 			}
@@ -283,7 +283,7 @@ namespace Game {
 			{
 				m_ShowText.SetColor(color, wind);
 			}
-			D2D1_COLOR_F&& GetTextColor()const
+			D2D1_COLOR_F GetTextColor()const
 			{
 				return m_ShowText.GetColor();
 			}
@@ -295,7 +295,7 @@ namespace Game {
 			{
 				m_Rectangle.SetColor(color, wind);
 			}
-			D2D1_COLOR_F&& GetBackgroundColor()const
+			D2D1_COLOR_F GetBackgroundColor()const
 			{
 				return m_Rectangle.GetColor();
 			}
@@ -752,6 +752,9 @@ namespace Game {
 		{
 		private:
 			bool m_Selseted;
+			bool m_OnlyNumber = false;
+			bool m_MultiLine = false;
+			int m_MaxStrSize = 128;
 			int m_CursorPosition;
 			D2D1_COLOR_F m_SelsetedColor;
 			D2D1_COLOR_F m_DefColor;
@@ -760,6 +763,9 @@ namespace Game {
 			WindElements::d2dFoldLine m_CursorLine;
 
 			WindCallback::CharInputCallback_D2D m_DefKeyCallback;
+			WindCallback::EditControlCallback m_EditCallback = nullptr;
+			WindCallback::MouseCallback m_DefMouseCallback = nullptr;
+
 			static void Selseted(MainWind* window, LONG64 data)
 			{
 				d2dEdit* edit = (d2dEdit*)data;
@@ -774,6 +780,30 @@ namespace Game {
 					return;
 				edit->CharInput(key, mode);
 			}
+			static void MouseHit(MainWind* window,int x,int y,int v,MouseMessageType type,KeyMode mode)
+			{
+				d2dEdit* edit = (d2dEdit*)window->GetSystemData();
+				if (!edit)
+					return;
+				edit->Mouse(x, y, type, mode);
+				if (edit->m_DefMouseCallback)
+					edit->m_DefMouseCallback(window, x, y, v, type, mode);
+			}
+
+			void Mouse(int x,int y,MouseMessageType type, KeyMode mode)
+			{
+				if (type == MT_LEFT && mode == KM_DOWN)
+				{
+					auto rect = m_CheckButton.GetShowRect();
+					if (x < rect.left || y < rect.top || x>rect.right || y>rect.bottom)
+					{
+						return;
+					}
+					SetCursorPosition(m_CheckButton.GetTextElement().GetHitPositionCharPosition(Vector::Vec2(x - rect.left, y - rect.top)) + 1);
+					SetCursor();
+				}
+			}
+
 			void CharInput(int key, KeyMode mode)
 			{
 				if (mode != KM_CHAR)
@@ -796,14 +826,30 @@ namespace Game {
 				}
 				case '\r':
 				{
-					Switch(m_CheckButton.GetBindedWindow());
-
-					break;
+					if (!m_MultiLine)	
+					{
+						Switch(m_CheckButton.GetBindedWindow());
+						break;
+					}//这里还真的需要穿透
 				}
 				default:
+					if (str.size() >= m_MaxStrSize)
+						break;
+					if (m_OnlyNumber)
+					{
+						if (key < '0' || key>'9')
+						{
+							if (key != '-' && key != '.')
+								break;
+						}
+					}
 					str.insert(m_CursorPosition,1, key);
 					SetCursorPosition(m_CursorPosition + 1);
 					SetCursor();
+					if (m_EditCallback)
+					{
+						m_EditCallback(GetBindedWindow(), m_CheckButton.GetShowString(), EditMessage::StringChange);
+					}
 					break;
 				}
 			}
@@ -843,8 +889,19 @@ namespace Game {
 						std::cout<<"在控件捕获字符输入过程中对字符回调进行了修改\n这可能会导致未知错误！" << std::endl;
 					}
 					window->SetKeyCallback(m_DefKeyCallback);
+					auto* MFptr = MouseHit;
+					if (window->GetMouseCallback() != MFptr)
+					{
+						std::cout << "在控件捕获字符输入过程中对鼠标回调进行了修改\n这可能会导致未知错误！" << std::endl;
+					}
+					window->SetMouseCallback(m_DefMouseCallback);
+
 					systemData = 0;
 					m_CursorLine.SetFoldLine({});
+					if (m_EditCallback)
+					{
+						m_EditCallback(window, m_CheckButton.GetShowString(), EditMessage::LeaveControl);
+					}
 				}
 				else
 				{
@@ -855,9 +912,15 @@ namespace Game {
 					}
 					m_CheckButton.SetBackgroundColor(m_SelsetedColor, window);
 					m_DefKeyCallback = window->GetKeyCallback();
+					m_DefMouseCallback = window->GetMouseCallback();
 					window->SetKeyCallback(CharInput);
+					window->SetMouseCallback(MouseHit);
 					systemData = (long long)this;
 					SetCursor();
+					if (m_EditCallback)
+					{
+						m_EditCallback(window, m_CheckButton.GetShowString(), EditMessage::EnterControl);
+					}
 				}
 				m_Selseted = !m_Selseted;
 				m_CheckButton.Negation(m_Selseted);
@@ -877,10 +940,25 @@ namespace Game {
 				m_CheckButton.SetCallback(Selseted);
 				m_CheckButton.SetUserData((LONG64)this);
 			}
+			void OnlyNumber(bool only)
+			{
+				m_OnlyNumber = only;
+			}
+			void MultiLine(bool ml)
+			{
+				m_MultiLine = ml;
+			}
+			void SetMaxStringSize(int size)
+			{
+				m_MaxStrSize = size;
+			}
 			void Init(MainWind_D2D* window, const std::wstring& ShowText = L"")
 			{
 				m_CheckButton.Init(0, 0, 0, 0, L"", D2D1::ColorF(0), m_DefColor, Selseted, window, (long long)this);
 				m_CheckButton.GetShowString() = ShowText;
+				m_CheckButton.GetTextElement().SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+				m_CheckButton.GetTextElement().SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+
 				m_CursorLine.SetColor(D2D1::ColorF(0), window->GetD2DTargetP());
 				
 				m_CursorLine.SetFoldLine({ D2D1::Point2F(0) });
@@ -998,6 +1076,38 @@ namespace Game {
 			void SetCursorColor(const D2D1_COLOR_F& color, MainWind_D2D* window)
 			{
 				m_CursorLine.SetColor(color, window->GetD2DTargetP());
+			}
+			/// <summary>
+			/// 设置水平对齐
+			/// </summary>
+			/// <param name="mode"></param>
+			void SetTextAlignment(DWRITE_TEXT_ALIGNMENT mode)
+			{
+				m_CheckButton.GetTextElement().SetTextAlignment(mode);
+			}
+			/// <summary>
+			/// 设置垂直对齐
+			/// </summary>
+			/// <param name="mode"></param>
+			void SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT mode)
+			{
+				m_CheckButton.GetTextElement().SetParagraphAlignment(mode);
+			}
+			/// <summary>
+			/// 设置回调函数
+			/// </summary>
+			/// <param name="callback"></param>
+			void SetCallback(WindCallback::EditControlCallback callback)
+			{
+				m_EditCallback = callback;
+			}
+			/// <summary>
+			/// 获取当前绑定的窗口
+			/// </summary>
+			/// <returns>返回窗口指针</returns>
+			MainWind_D2D* GetBindedWindow()const
+			{
+				return m_CheckButton.GetBindedWindow();
 			}
 		};
 

@@ -2,124 +2,131 @@
 #ifndef OneKeyD2DMacro_HPP
 #define OneKeyD2DMacro_HPP
 
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif//NOMinMAX
 
 #include<d2d1.h>
 #include<cmath>
 #include<random>
 #include<string>
+#include <sstream>
+#include <iomanip>
 
-/// <summary>
-/// 释放d2d等含有Release函数的句柄
-/// </summary>
-/// <typeparam name="Interface"></typeparam>
-/// <param name="ppInterfaceToRelease"></param>
-template<class Interface>
-inline void SafeRelease(
-    Interface** ppInterfaceToRelease)
-{
-    if (*ppInterfaceToRelease != NULL)
-    {
-        (*ppInterfaceToRelease)->Release();
-        (*ppInterfaceToRelease) = NULL;
-    }
-}
-/// <summary>
-/// 释放new的内容
-/// </summary>
-/// <typeparam name="Interface"></typeparam>
-/// <param name="ppInterfaceToRelease"></param>
-template<class Interface>
-inline void SafeReleaseP(
-    Interface** ppInterfaceToRelease)
-{
-    if (*ppInterfaceToRelease != NULL)
-    {
-        delete (*ppInterfaceToRelease);
-        (*ppInterfaceToRelease) = NULL;
-    }
-}
-/// <summary>
-/// 释放win32gdi等使用DeleteObject函数释放资源的句柄
-/// </summary>
-/// <typeparam name="Interface"></typeparam>
-/// <param name="ppInterfaceToRelease"></param>
-template<class Interface>
-inline void SafeReleaseW(
-    Interface** ppInterfaceToRelease)
-{
-    if (*ppInterfaceToRelease != NULL)
-    {
-        DeleteObject(*ppInterfaceToRelease);
-        (*ppInterfaceToRelease) = NULL;
-    }
-}
 
-class GetLastWindowError
+namespace Game
 {
-    DWORD m_ErrorCode;
-    LPSTR m_ErrorMessage;
-public:
-    GetLastWindowError()
+    /// <summary>
+    /// 释放d2d等含有Release函数的句柄
+    /// </summary>
+    /// <typeparam name="Interface"></typeparam>
+    /// <param name="ppInterfaceToRelease"></param>
+    template<class Interface>
+    inline void SafeRelease(
+        Interface** ppInterfaceToRelease)
     {
-        m_ErrorCode = GetLastError();
-        FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&m_ErrorMessage, 0, NULL);
+        if (*ppInterfaceToRelease != NULL)
+        {
+            (*ppInterfaceToRelease)->Release();
+            (*ppInterfaceToRelease) = NULL;
+        }
     }
-    GetLastWindowError(HRESULT hr)
+    /// <summary>
+    /// 释放new的内容
+    /// </summary>
+    /// <typeparam name="Interface"></typeparam>
+    /// <param name="ppInterfaceToRelease"></param>
+    template<class Interface>
+    inline void SafeReleaseP(
+        Interface** ppInterfaceToRelease)
     {
-        m_ErrorCode = HRESULT_CODE(hr);
-        FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&m_ErrorMessage, 0, NULL);
+        if (*ppInterfaceToRelease != NULL)
+        {
+            delete (*ppInterfaceToRelease);
+            (*ppInterfaceToRelease) = NULL;
+        }
     }
-    ~GetLastWindowError()
+    /// <summary>
+    /// 释放win32gdi等使用DeleteObject函数释放资源的句柄
+    /// </summary>
+    /// <typeparam name="Interface"></typeparam>
+    /// <param name="ppInterfaceToRelease"></param>
+    template<class Interface>
+    inline void SafeReleaseW(
+        Interface** ppInterfaceToRelease)
     {
-        if(m_ErrorMessage)
-            LocalFree(m_ErrorMessage);
+        if (*ppInterfaceToRelease != NULL)
+        {
+            DeleteObject(*ppInterfaceToRelease);
+            (*ppInterfaceToRelease) = NULL;
+        }
     }
-    DWORD GetErrorCode() const
+
+    class GetLastWindowError
     {
-        return m_ErrorCode;
-    }
-    LPSTR GetErrorMessage() const
+        DWORD m_ErrorCode;
+        LPSTR m_ErrorMessage;
+    public:
+        GetLastWindowError()
+        {
+            m_ErrorCode = GetLastError();
+            FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&m_ErrorMessage, 0, NULL);
+        }
+        GetLastWindowError(HRESULT hr)
+        {
+            m_ErrorCode = HRESULT_CODE(hr);
+            FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&m_ErrorMessage, 0, NULL);
+        }
+        ~GetLastWindowError()
+        {
+            if (m_ErrorMessage)
+                LocalFree(m_ErrorMessage);
+        }
+        DWORD GetErrorCode() const
+        {
+            return m_ErrorCode;
+        }
+        LPSTR GetErrorMessage() const
+        {
+            return m_ErrorMessage;
+        }
+    };
+    class GetLastWindowErrorW
     {
-        return m_ErrorMessage;
-    }
-};
-class GetLastWindowErrorW
-{
-    DWORD m_ErrorCode;
-    LPWSTR m_ErrorMessage;
-public:
-    GetLastWindowErrorW()
-    {
-        SetConsoleOutputCP(936);
-        m_ErrorCode = GetLastError();
-        FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&m_ErrorMessage, 0, NULL);
-    }
-    GetLastWindowErrorW(HRESULT hr)
-    {
-        SetConsoleOutputCP(936);
-        m_ErrorCode = HRESULT_CODE(hr);
-        FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&m_ErrorMessage, 0, NULL);
-    }
-    ~GetLastWindowErrorW()
-    {
-        SetConsoleOutputCP(65001);
-        if (m_ErrorMessage)
-            LocalFree(m_ErrorMessage);
-    }
-    DWORD GetErrorCode() const
-    {
-        return m_ErrorCode;
-    }
-    LPWSTR GetErrorMessage() const
-    {
-        return m_ErrorMessage;
-    }
-};
+        DWORD m_ErrorCode;
+        LPWSTR m_ErrorMessage;
+    public:
+        GetLastWindowErrorW()
+        {
+            SetConsoleOutputCP(936);
+            m_ErrorCode = GetLastError();
+            FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&m_ErrorMessage, 0, NULL);
+        }
+        GetLastWindowErrorW(HRESULT hr)
+        {
+            SetConsoleOutputCP(936);
+            m_ErrorCode = HRESULT_CODE(hr);
+            FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, m_ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&m_ErrorMessage, 0, NULL);
+        }
+        ~GetLastWindowErrorW()
+        {
+            SetConsoleOutputCP(65001);
+            if (m_ErrorMessage)
+                LocalFree(m_ErrorMessage);
+        }
+        DWORD GetErrorCode() const
+        {
+            return m_ErrorCode;
+        }
+        LPWSTR GetErrorMessage() const
+        {
+            return m_ErrorMessage;
+        }
+    };
 
 #ifndef Assert
 #if defined( DEBUG ) || defined( _DEBUG )
@@ -130,40 +137,48 @@ public:
 #endif
 
 #ifndef HINST_THISCOMPONENT
-EXTERN_C IMAGE_DOS_HEADER __ImageBase;
+    EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 #define HINST_THISCOMPONENT ((HINSTANCE)&__ImageBase)
 #endif
 
 
 
 #ifdef UNICODE
-    
-typedef std::wstring STR;
-typedef const std::wstring CSTR;
-typedef std::wstring& QSTR;
-typedef const std::wstring& CQSTR;
 
-template<typename T>
-std::wstring ToStr(T num)
-{
-    return std::to_wstring(num);
-}
+    typedef std::wstring STR;
+    typedef const std::wstring CSTR;
+    typedef std::wstring& QSTR;
+    typedef const std::wstring& CQSTR;
 
+    namespace StrTool
+    {
+        template<typename T>
+        std::wstring ToStr(T num, int DecimalPlaces = 2)
+        {
+            std::wstringstream ss;
+            ss << std::fixed << std::setprecision(DecimalPlaces) << num;
+            return ss.str();
+        }
+    }
 #else
 
-typedef std::string STR;
-typedef const std::string CSTR;
-typedef std::string& QSTR;
-typedef const std::string& CQSTR;
+    typedef std::string STR;
+    typedef const std::string CSTR;
+    typedef std::string& QSTR;
+    typedef const std::string& CQSTR;
 
-template<typename T>
-std::string ToStr(T num)
-{
-    return std::to_string(num);
-}
-
+    namespace StrTool
+    {
+        template<typename T>
+        std::string ToStr(T num, int DecimalPlaces = 2)
+        {
+            std::stringstream ss;
+            ss << std::fixed << std::setprecision(DecimalPlaces) << num;
+            return ss.str();
+        }
+    }
 #endif // UNICODE
-
+}
 namespace Game {
     enum KeyMode
     {
@@ -208,18 +223,18 @@ namespace Game {
         // 内框样式
         InsideFrame = PS_INSIDEFRAME,
     };
-    enum class ControlMessage
+    enum class EditMessage
     {
         EnterControl,
         LeaveControl,
-        ControlMessage,
+        StringChange,
     };
     class AutoInit
     {
     public:
         AutoInit()
         {
-            std::wcout.imbue(std::locale("chs"));
+            setlocale(LC_ALL, "zh_CN.utf8");
             SetConsoleOutputCP(65001);
             HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
             if (FAILED(hr))
@@ -284,7 +299,7 @@ namespace Game {
             }
             float LengthF()const
             {
-                return std::sqrtf(x * x + y * y + z * z);
+                return std::sqrt(x * x + y * y + z * z);
             }
             static float LengthF(const Vector3& vec)
             {
@@ -471,6 +486,11 @@ namespace Game {
                     throw std::runtime_error("索引超出安全范围");
                 return (&x)[index];
             }
+
+            D2D1::ColorF ToD2DColor()const
+            {
+                return D2D1::ColorF(x, y, z);
+            }
         };
 
         template<typename DataType>
@@ -503,7 +523,7 @@ namespace Game {
             }
             float LengthF()const
             {
-                return std::sqrtf(x * x + y * y);
+                return std::sqrt(x * x + y * y);
             }
             static float LengthF(const Vector2& vec)
             {
@@ -759,7 +779,7 @@ namespace Game {
             }
             float LengthF()const
             {
-                return std::sqrtf(x * x + y * y + z * z + w * w);
+                return std::sqrt(x * x + y * y + z * z + w * w);
             }
             static float LengthF(const Vector4& vec)
             {

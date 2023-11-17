@@ -357,7 +357,7 @@ namespace Game
 					return true;
 				return false;
 			}
-			D2D1_COLOR_F&& GetColor()const
+			D2D1_COLOR_F GetColor()const
 			{
 				if (m_Color)
 					return m_Color->GetColor();
@@ -393,11 +393,20 @@ namespace Game
 				CenterR.y = (m_ShowRectangle.bottom - m_ShowRectangle.top) * center.y + m_ShowRectangle.top;
 				m_Rotation = D2D1::Matrix3x2F::Rotation(angle, CenterR);
 			}
+			/// <summary>
+			/// 设置文本水平对齐方式
+			/// </summary>
+			/// <param name="dta"></param>
 			void SetTextAlignment(DWRITE_TEXT_ALIGNMENT dta)
 			{
+				
 				if (m_TextFormat)
 					m_TextFormat->SetTextAlignment(dta);
 			}
+			/// <summary>
+			/// 设置文本垂直对齐方式
+			/// </summary>
+			/// <param name="dta"></param>
 			void SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT dta)
 			{
 				if (m_TextFormat)
@@ -455,7 +464,57 @@ namespace Game
 				SafeRelease(&writeFactory);
 				return S_OK;
 			}
-
+			/// <summary>
+			/// 获取指定位置的字符索引
+			/// </summary>
+			/// <param name="pos">相对位置</param>
+			/// <returns></returns>
+			int GetHitPositionCharPosition(const Vector::Vec2& pos)const
+			{
+				IDWriteFactory* writeFactory = nullptr;
+				HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&writeFactory));
+				if (FAILED(hr))
+				{
+					return -1;
+				}
+				IDWriteTextLayout* dwriteTextLayout;
+				hr = writeFactory->CreateTextLayout(
+					m_ShowText.c_str(),
+					m_ShowText.size(),
+					m_TextFormat,
+					m_ShowRectangle.right - m_ShowRectangle.left,
+					m_ShowRectangle.bottom - m_ShowRectangle.top,
+					&dwriteTextLayout
+				);
+				if (FAILED(hr))
+				{
+					SafeRelease(&writeFactory);
+					return -1;
+				}
+				DWRITE_HIT_TEST_METRICS hitTestMetrics;
+				BOOL isTrailingHit,isInside;
+				hr = dwriteTextLayout->HitTestPoint(
+					pos.x,
+					pos.y,
+					&isTrailingHit,
+					&isInside,
+					&hitTestMetrics
+				);
+				if (FAILED(hr))
+				{
+					SafeRelease(&dwriteTextLayout);
+					SafeRelease(&writeFactory);
+					return -1;
+				}
+				SafeRelease(&dwriteTextLayout);
+				SafeRelease(&writeFactory);
+				return hitTestMetrics.textPosition;
+			}
+			/// <summary>
+			/// 获取指定字符索引处的位置
+			/// </summary>
+			/// <param name="CharIndex">第几个字符</param>
+			/// <returns></returns>
 			D2D1_POINT_2F GetStringCharPosition(int CharIndex)const
 			{
 				IDWriteFactory* writeFactory = nullptr;
@@ -480,7 +539,6 @@ namespace Game
 				}
 				DWRITE_HIT_TEST_METRICS hitTestMetrics;
 				FLOAT charX, charY;
-
 				hr = dwriteTextLayout->HitTestTextPosition(
 					CharIndex,
 					FALSE,
@@ -622,7 +680,7 @@ namespace Game
 					return true;
 				return false;
 			}
-			D2D1_COLOR_F&& GetColor()const
+			D2D1_COLOR_F GetColor()const
 			{
 				return m_Color->GetColor();
 			}
@@ -833,6 +891,7 @@ namespace Game
 				}
 				pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
 				pSink->Close();
+				return true;
 			}
 
 			bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)

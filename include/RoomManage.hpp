@@ -619,6 +619,12 @@ namespace Game {
 			{
 				m_Rotate.SetAngle(angle);
 			}
+			/// <summary>
+			/// 由场景坐标系转换到摄像机坐标系
+			/// </summary>
+			/// <param name="pos">场景坐标</param>
+			/// <param name="camera">目标摄像机</param>
+			/// <returns>场景坐标对应的摄像机坐标</returns>
 			static Vector::Vec2 ScenceToCamera(const Vector::Vec2& pos, const Camera2D& camera)
 			{
 				Vector::Vec2 right = Vector::Vec2(1, 0);
@@ -629,6 +635,13 @@ namespace Game {
 				result.y *= -1;
 				return result;
 			}
+			/// <summary>
+			/// 由摄像机坐标系转换到窗口坐标系
+			/// </summary>
+			/// <param name="pos">摄像机坐标</param>
+			/// <param name="wind">目标窗口</param>
+			/// <param name="camera">目标摄像机</param>
+			/// <returns>窗口绘图坐标</returns>
 			static Vector::Vec2 CameraToWindow(const Vector::Vec2& pos, MainWind* wind, const Camera2D& camera)
 			{
 				Vector::Vec2 Shift = pos;
@@ -640,6 +653,13 @@ namespace Game {
 				Shift.y *= yScale;
 				return Shift;
 			}
+			/// <summary>
+			/// 由场景坐标系转换到窗口绘图坐标系
+			/// </summary>
+			/// <param name="pos">场景坐标</param>
+			/// <param name="wind">目标窗口</param>
+			/// <param name="camera">窗口使用的摄像机</param>
+			/// <returns>窗口绘图坐标系</returns>
 			static Vector::Vec2 ScenceToWindow(const Vector::Vec2& pos, MainWind* wind, const Camera2D& camera)
 			{
 				Vector::Vec2 originPoint = camera.m_ShowWide * 0.5;
@@ -654,6 +674,13 @@ namespace Game {
 				Shift.y *= yScale;
 				return Shift;
 			}
+			/// <summary>
+			/// 由窗口坐标系转换到场景坐标系
+			/// </summary>
+			/// <param name="pos">窗口客户区坐标</param>
+			/// <param name="wind">窗口</param>
+			/// <param name="camera">使用的摄像机</param>
+			/// <returns>场景坐标</returns>
 			static Vector::Vec2 WindowToScence(const Vector::Vec2& pos, MainWind* wind, const Camera2D& camera)
 			{
 				auto WindowSize = wind->GetWindSize();
@@ -877,6 +904,26 @@ namespace Game {
 				return m_Button.GetUserData();
 			}
 		};
+
+		class EditUI :public RoomUI
+		{
+			void Draw(MainWind_D2D* window,const Camera2D& camera)override
+			{
+				m_Edit.SetShowRect(m_ShowRectangle);
+				m_Edit.Draw(window);
+			}
+			void Init(MainWind_D2D* window)override
+			{
+				m_Edit.Bind(window);
+			}
+			void Silent(Game::MainWind_D2D* wind)override
+			{
+				m_Edit.Unbind();
+			}
+		public:
+			WindControl::d2dEdit m_Edit;
+
+		};
 		/// <summary>
 		/// 设置图片到场景
 		/// </summary>
@@ -916,6 +963,38 @@ namespace Game {
 				m_Image->Draw(wind->GetD2DTargetP(), m_Crop);
 			}
 			void Init(MainWind_D2D*)override{}
+		};
+		/// <summary>
+		/// 场景坐标系的文本
+		/// </summary>
+		class Text :public RoomScence
+		{
+			void Draw(MainWind_D2D* window, const Camera2D& camera)override
+			{
+				auto size = window->GetWindSize();
+				auto windowPos = ScenceToWindow(m_Position, window, camera);
+				if (windowPos.x > size.cx || windowPos.y > size.cy)
+					return;
+				auto windowWide = CameraToWindow(m_Wide, window, camera) + windowPos;
+				if (windowWide.x < 0 || windowWide.y < 0)
+					return;
+				m_Text.SetShowRect(D2D1::RectF(windowPos.x, windowPos.y, windowWide.x, windowWide.y));
+				m_Text.Draw(window);
+			}
+		public:
+			WindElements::d2dText m_Text;
+			void SetColor(const D2D1_COLOR_F& color,MainWind_D2D* window)
+			{
+				m_Text.SetColor(color, window->GetD2DTargetP());
+			}
+			/// <summary>
+			/// 设置显示的文本，要设置颜色后才能看到
+			/// </summary>
+			/// <param name="text"></param>
+			void SetText(const std::wstring& text)
+			{
+				m_Text.SetShowText(text);
+			}
 		};
 		/// <summary>
 		/// 铺设瓦片地图到场景。
@@ -1029,7 +1108,7 @@ namespace Game {
 
 				for (int x = leftBottom.x - 1; x < rightTop.x + 1; ++x)
 				{
-					for (int y = leftBottom.y - 1; y < rightTop.y + 1; ++y)
+					for (int y = rightTop.y + 1; y > leftBottom.y - 1; --y)
 					{
 						int index = GetIndex(Vector::Vector2<int>(x, y));
 						if (index < 0)

@@ -46,7 +46,8 @@ namespace Game
 
 		typedef void(*ButtonCallback)(MainWind*,LONG64);
 		typedef void(*MouseCallback)(MainWind*, int x, int y, int VirtualKey, MouseMessageType, KeyMode);
-		typedef void(*EditControlCallback)(MainWind*, const std::wstring&, ControlMessage);
+		typedef void(*EditControlCallback)(MainWind*, const std::wstring&, EditMessage);
+
 	}
 
 	namespace WindElements
@@ -343,7 +344,7 @@ namespace Game
 		//绘制多边形
 		virtual bool DrawGeometry(POINT* pointArr,int pointCount)=0;
 		//绘制多边形
-		virtual bool DrawGeometry(std::vector<POINT>points)=0;
+		virtual bool DrawGeometry(std::vector<POINT>&points)=0;
 
 		/// <summary>
 		/// 获取窗口句柄（如果对win32编程不熟悉不建议直接使用句柄）
@@ -432,10 +433,19 @@ namespace Game
 		{
 			m_UserData = data;
 		}
-		LPARAM GetUserData()const
+		const LPARAM& GetUserData()const
 		{
 			return m_UserData;
 		}
+		LPARAM& GetUserData()
+		{
+			return m_UserData;
+		}
+		/// <summary>
+		/// 固定窗口大小
+		/// </summary>
+		/// <param name="width">目标宽度，小于0时为当前大小</param>
+		/// <param name="height">目标高度，小于0时为当前大小</param>
 		void FixedWindowSize(int width = -1, int height = -1)
 		{
 			DWORD dwStyle = GetWindowLong(m_hWnd, GWL_STYLE);
@@ -703,7 +713,7 @@ namespace Game
 			DeleteObject(hBrush);
 			return true;
 		}
-		bool AutoClearWindBackground(COLORREF color = RGB(255, 255, 255), bool run = true)
+		bool AutoClearWindBackground(COLORREF color = RGB(255, 255, 255), bool run = true)override
 		{
 			if (!run)
 			{
@@ -723,7 +733,7 @@ namespace Game
 				return false;
 			return true;
 		}
-		bool DrawLine(int startX, int startY, int endX, int endY)
+		bool DrawLine(int startX, int startY, int endX, int endY)override
 		{
 			if (!m_hdc)
 				return false;
@@ -731,7 +741,7 @@ namespace Game
 			LineTo(m_hdc, endX, endY);
 			return true;
 		}
-		bool DrawLineTo(int toX, int toY)
+		bool DrawLineTo(int toX, int toY)override
 		{
 			if (!m_hdc)
 				return false;
@@ -761,7 +771,7 @@ namespace Game
 			return true;
 		}
 		//绘制多边形
-		bool DrawGeometry(std::vector<POINT>points)override
+		bool DrawGeometry(std::vector<POINT>&points)override
 		{
 			return DrawGeometry(points.data(),points.size());
 		}
@@ -1085,14 +1095,14 @@ namespace Game
 			return S_OK;
 		}
 
-		COLORREF D2DColorFToGdiColor(D2D1::ColorF colorF)
+		static COLORREF D2DColorFToGdiColor(D2D1::ColorF colorF)
 		{
 			BYTE redByte = static_cast<BYTE>(colorF.r * 255);
 			BYTE greenByte = static_cast<BYTE>(colorF.g * 255);
 			BYTE blueByte = static_cast<BYTE>(colorF.b * 255);
 			return RGB(redByte, greenByte, blueByte);
 		}
-		D2D1::ColorF GdiColorToD2DColor(COLORREF colorRef)
+		static D2D1::ColorF GdiColorToD2DColor(COLORREF colorRef)
 		{
 			float red = GetRValue(colorRef) / 255.0f;
 			float green = GetGValue(colorRef) / 255.0f;
@@ -1244,7 +1254,7 @@ namespace Game
 			return true;
 		}
 		//绘制多边形
-		bool DrawGeometry(std::vector<POINT>points)override
+		bool DrawGeometry(std::vector<POINT>&points)override
 		{
 			return DrawGeometry(points.data(),points.size());
 		}
@@ -1366,7 +1376,7 @@ namespace Game
 				return false;
 			}
 			else
-				return PlaySound((LPCWSTR)m_Data.data(), nullptr, SND_MEMORY | SND_APPLICATION | (int)mode);
+				return PlaySound((TCHAR*)m_Data.data(), nullptr, SND_MEMORY | SND_APPLICATION | (int)mode);
 		}
 		bool Play(CQSTR filePath, PlayMode mode = PM_ASYNC)
 		{
@@ -1386,7 +1396,7 @@ namespace Game
 		STR m_id;
 	public:
 
-		Sound() :m_id(std::to_wstring((long long)this)) {}
+		Sound() :m_id(StrTool::ToStr((long long)this)) {}
 		~Sound()
 		{
 			Close();
@@ -1437,7 +1447,7 @@ namespace Game
 		/// <returns></returns>
 		bool Seek(int ms)const
 		{
-			if (0 != mciSendString((TEXT("seek ") + m_id + TEXT(" to ")+ToStr(ms)).c_str(), NULL, 0, NULL))
+			if (0 != mciSendString((TEXT("seek ") + m_id + TEXT(" to ")+StrTool::ToStr(ms,0)).c_str(), NULL, 0, NULL))
 			{
 				return false;
 			}
@@ -1498,7 +1508,7 @@ namespace Game
 		/// <returns></returns>
 		bool SetAudioVolume(int v)const
 		{
-			if (0 != mciSendString((TEXT("setaudio ") + m_id + TEXT(" volume to ") + ToStr(v)).c_str(), NULL, 0, NULL))
+			if (0 != mciSendString((TEXT("setaudio ") + m_id + TEXT(" volume to ") + StrTool::ToStr(v,0)).c_str(), NULL, 0, NULL))
 			{
 				return false;
 			}
