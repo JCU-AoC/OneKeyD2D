@@ -2,7 +2,9 @@
 
 # OneKeyD2D
 
-封装了Direct 2D窗口创建相关函数，用于快速创建Direct 2D窗口。
+封装了Direct 2D窗口创建相关函数，用于快速创建Direct 2D窗口。  
+是纯头文件的库，方便学习使用  
+教程[OneKeyD2D开发文档](https://thisminibox.github.io/)
 
 ## 下载库
 
@@ -35,7 +37,7 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
         "-ldwrite",
         "-lole32",
         "-lwindowscodecs",
-        "-Winmm"，
+        "-lWinmm",
         //结束
         "-finput-charset=UTF-8",    //指定输入的文件格式
     ],
