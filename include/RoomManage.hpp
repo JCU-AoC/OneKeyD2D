@@ -129,7 +129,7 @@ namespace Game {
 	namespace RoomCallback {
 		using RoomKeyCallback = void(*)(Room*, int KeyInputChar, int Frequency, KeyMode);
 		using RoomMouseCallback = void(*)(Room*, int x, int y, int Frequency, MouseMessageType, KeyMode);
-		using RoomSizeCallback = void(*)(Room*, int x,int y);
+		using RoomSizeCallback = void(*)(Room*, int width,int height);
 		using RoomUserWindowDrawCallback= void(*)(Room*, MainWind_D2D*);
 	}
 

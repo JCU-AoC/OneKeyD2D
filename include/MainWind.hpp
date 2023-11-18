@@ -46,10 +46,9 @@ namespace Game
 
 		typedef void(*ButtonCallback)(MainWind*,LONG64);
 		typedef void(*MouseCallback)(MainWind*, int x, int y, int VirtualKey, MouseMessageType, KeyMode);
-		typedef void(*EditControlCallback)(MainWind*, const std::wstring&, EditMessage);
-
+		using EditControlCallback = void(*)(MainWind*, const std::wstring&, EditMessage);
 	}
-
+	
 	namespace WindElements
 	{
 		class d2dClickDetection
@@ -321,6 +320,11 @@ namespace Game
 			int top,
 			int right,
 			int bottom) = 0;
+		virtual bool DrawFillRectangle(
+			int left,
+			int top,
+			int right,
+			int bottom, COLORREF fillColor) = 0;
 		/// <summary>
 		/// 画线,颜色为画笔颜色
 		/// </summary>
@@ -345,6 +349,10 @@ namespace Game
 		virtual bool DrawGeometry(POINT* pointArr,int pointCount)=0;
 		//绘制多边形
 		virtual bool DrawGeometry(std::vector<POINT>&points)=0;
+		//绘制填充多边形
+		virtual bool DrawFillGeometry(POINT* pointArr, int pointCount, COLORREF fillColor) = 0;
+		//绘制填充多边形
+		virtual bool DrawFillGeometry(std::vector<POINT>& points, COLORREF fillColor) = 0;
 
 		/// <summary>
 		/// 获取窗口句柄（如果对win32编程不熟悉不建议直接使用句柄）
@@ -483,10 +491,15 @@ namespace Game
 		{
 			PAINTSTRUCT ps;
 			m_hdc = BeginPaint(m_hWnd, &ps);
+			SetBkMode(m_hdc, TRANSPARENT);
+			
 			if (m_CurrentPen)
 				m_OldPen = (HPEN)SelectObject(m_hdc, m_CurrentPen);
 			if (m_BackgroundColor)
+			{
+				SelectObject(m_hdc, m_BackgroundColor);
 				FillRect(m_hdc, &m_WindWide, m_BackgroundColor);
+			}
 			if (m_PaintCallback)
 				m_PaintCallback(this);
 			if (m_CurrentPen)
@@ -702,6 +715,22 @@ namespace Game
 				return Rectangle(m_hdc, left, top, right, bottom);
 			return false;
 		}
+		bool DrawFillRectangle(
+			int left,
+			int top,
+			int right,
+			int bottom, COLORREF fillColor)override
+		{
+			if (m_hdc)
+			{
+				HBRUSH color = CreateSolidBrush(fillColor);
+				RECT rect = { left, top, right, bottom };
+				auto result = FillRect(m_hdc, &rect, color);
+				SafeReleaseW(&color);
+				return result;
+			}
+			return false;
+		}
 		bool ClearWindBackground(COLORREF color = RGB(255, 255, 255))override
 		{
 			if (!m_hdc)
@@ -775,27 +804,51 @@ namespace Game
 		{
 			return DrawGeometry(points.data(),points.size());
 		}
-
+		//绘制填充多边形
+		bool DrawFillGeometry(POINT* pointArr, int pointCount, COLORREF fillColor)override
+		{
+			if (!m_hdc)
+				return false;
+			auto color = CreateSolidBrush(fillColor);
+			if (!color)
+				return false;
+			auto oldColor = SelectObject(m_hdc, color);
+			Polygon(m_hdc, pointArr, pointCount);
+			SelectObject(m_hdc, oldColor);
+			return true;
+		}
+		//绘制填充多边形
+		bool DrawFillGeometry(std::vector<POINT>& points, COLORREF fillColor)override
+		{
+			return DrawFillGeometry(points.data(), points.size(), fillColor);
+		}
 		bool SetPen(COLORREF color, PenStyle penStyle = PenStyle::SolidLine, int LineWidth = 1)override
 		{
+			auto lastPen = m_CurrentPen;
+			m_CurrentPen = CreatePen((int)penStyle, LineWidth, color);
+			if (!m_CurrentPen)
+			{
+				m_CurrentPen = lastPen;
+				return false;
+			}
+			SafeReleaseW(&lastPen);
 			if (m_hdc)
 			{
-				auto lastPen = m_CurrentPen;
-				m_CurrentPen = CreatePen((int)penStyle, LineWidth, color);
-				if (!m_CurrentPen)
-				{
-					m_CurrentPen = lastPen;
-					return false;
-				}
 				SelectObject(m_hdc, m_CurrentPen);
-				SafeReleaseW(&lastPen);
-				return true;
 			}
-			SafeReleaseW(&m_CurrentPen);
-			m_CurrentPen = CreatePen((int)penStyle, LineWidth, color);
-			if (m_CurrentPen)
-				return true;
-			return false;
+			else
+			{
+				if (m_hWnd)
+				{
+					m_hdc = GetDC(m_hWnd);
+					SelectObject(m_hdc, m_CurrentPen);
+					DeleteDC(m_hdc);
+					m_hdc = nullptr;
+				}
+				else
+					return false;
+			}
+			return true;
 		}
 	};
 	
@@ -1155,6 +1208,20 @@ namespace Game
 			if(m_d2dRenderTarget)
 			{
 				D2D1_RECT_F rect = D2D1::RectF((float)left, (float)top, (float)right, (float)bottom);
+				m_d2dRenderTarget->DrawRectangle(rect, m_PenBrush,m_PenWidth,m_PenStyle);
+				return true;
+			}
+			return false;
+		}
+		bool DrawFillRectangle(
+			int left,
+			int top,
+			int right,
+			int bottom, COLORREF fillColor)override
+		{
+			if (m_d2dRenderTarget)
+			{
+				D2D1_RECT_F rect = D2D1::RectF((float)left, (float)top, (float)right, (float)bottom);
 				m_d2dRenderTarget->FillRectangle(rect, m_PenBrush);
 				return true;
 			}
@@ -1185,14 +1252,14 @@ namespace Game
 			if (!m_d2dRenderTarget)
 				return false;
 			m_LastPoint = D2D1::Point2F((float)endX, (float)endY);
-			m_d2dRenderTarget->DrawLine(D2D1::Point2F((float)startX, (float)startY), m_LastPoint, m_PenBrush);
+			m_d2dRenderTarget->DrawLine(D2D1::Point2F((float)startX, (float)startY), m_LastPoint, m_PenBrush, m_PenWidth, m_PenStyle);
 			return true;
 		}
 		bool DrawLineTo(int toX, int toY)override
 		{
 			if (!m_d2dRenderTarget)
 				return false;
-			m_d2dRenderTarget->DrawLine(m_LastPoint, D2D1::Point2F((float)toX, (float)toY), m_PenBrush);
+			m_d2dRenderTarget->DrawLine(m_LastPoint, D2D1::Point2F((float)toX, (float)toY), m_PenBrush, m_PenWidth, m_PenStyle);
 			return true;
 		}
 		bool DrawTextAscii(const std::string& ShowText, int x, int y, int w, int h)override
@@ -1207,34 +1274,36 @@ namespace Game
 			m_d2dRenderTarget->DrawText(ShowText.c_str(), (int)ShowText.size(), m_TextFormat, rect, m_PenBrush);
 			return true;
 		}
-		bool DrawGeometry(D2D1_POINT_2F* pointArr,int pointCount)
+		bool DrawGeometry(D2D1_POINT_2F* pointArr, int pointCount, bool Fill = true)
 		{
 			if (!m_d2dRenderTarget||!m_PenBrush)
 				return false;
-			ID2D1PathGeometry* pGeometry = NULL;
-			m_d2dFactory->CreatePathGeometry(&pGeometry);
-			if (!pGeometry)
-				return false;
-			// 打开路径几何图形进行绘图
-			ID2D1GeometrySink* pSink = NULL;
-			pGeometry->Open(&pSink);
-			pSink->SetFillMode(D2D1_FILL_MODE_ALTERNATE);
-			pSink->BeginFigure(*pointArr, D2D1_FIGURE_BEGIN_FILLED);
+			ID2D1GeometrySink* pSink;
+			ID2D1PathGeometry* pathGeometry;
+			HRESULT hr= m_d2dFactory->CreatePathGeometry(&pathGeometry);
+			if (SUCCEEDED(hr))
+			{
+				// Write to the path geometry using the geometry sink.
+				hr = pathGeometry->Open(&pSink);
 
-			// 添加线段
-			for (UINT32 i = 1; i < pointCount; i++) {
-				pSink->AddLine(pointArr[i]);
+				if (SUCCEEDED(hr))
+				{
+					pSink->BeginFigure(
+						*pointArr,
+						D2D1_FIGURE_BEGIN_FILLED
+					);
+
+					pSink->AddLines(&pointArr[1], pointCount-1);
+					pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
+
+					hr = pSink->Close();
+				}
+				SafeRelease(&pSink);
 			}
-
-			// 结束对路径几何图形的绘图
-			pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
-			pSink->Close();
-			pSink->Release();
-
-			// 绘制几何图形
-			m_d2dRenderTarget->DrawGeometry(pGeometry, m_PenBrush);
-			// 释放资源
-			pGeometry->Release();
+			if (Fill)
+				m_d2dRenderTarget->FillGeometry(pathGeometry, m_PenBrush);
+			else
+				m_d2dRenderTarget->DrawGeometry(pathGeometry, m_PenBrush, m_PenWidth, m_PenStyle);
 			return true;
 		}
 		//绘制多边形
@@ -1250,8 +1319,7 @@ namespace Game
 				POINT poi=pointArr[i];
 				arr[i]=D2D1::Point2F(poi.x,poi.y);
 			}
-			bool result= DrawGeometry(arr,pointCount);
-			return true;
+			return DrawGeometry(arr, pointCount, false);
 		}
 		//绘制多边形
 		bool DrawGeometry(std::vector<POINT>&points)override
@@ -1266,20 +1334,69 @@ namespace Game
 		bool SetPen(COLORREF color, PenStyle penStyle = PenStyle::SolidLine, int LineWidth = 1)override
 		{
 			D2D1_STROKE_STYLE_PROPERTIES d2dPenStyle = D2D1::StrokeStyleProperties(
-				D2D1_CAP_STYLE_FLAT,   // 端点样式
-				D2D1_CAP_STYLE_FLAT,   // 连接处样式
-				D2D1_CAP_STYLE_FLAT,   // 虚线起点端点样式
-				D2D1_LINE_JOIN_BEVEL,  // 虚线样式
-				10.0f,                  // 虚线间隔
-				(D2D1_DASH_STYLE)penStyle);  // 实线样式
+				D2D1_CAP_STYLE_FLAT,
+				D2D1_CAP_STYLE_FLAT,
+				D2D1_CAP_STYLE_ROUND,
+				D2D1_LINE_JOIN_MITER,
+				10.0f,
+				D2D1_DASH_STYLE_CUSTOM,
+				0.0f);
+			switch (penStyle)
+			{
+			case Game::PenStyle::DashedLine:
+			{
+				std::vector<float> point = { 5,3 };
+				if (!SetPenStyle(d2dPenStyle, point))
+				{
+					return false;
+				}
+			}
+				break;
+			case Game::PenStyle::DotLine:
+			{
+				std::vector<float> point = { 1,3 };
+				if (!SetPenStyle(d2dPenStyle, point))
+				{
+					return false;
+				}
+			}
+				break;
+			case Game::PenStyle::DashDot:
+			{
+				std::vector<float> point = { 10,5,1,5 };
+				if (!SetPenStyle(d2dPenStyle, point))
+				{
+					return false;
+				}
+			}
+				break;
+			case Game::PenStyle::DashDotDot:
+			{
+				std::vector<float> point = { 10,5,1,5,1,5 };
+				if (!SetPenStyle(d2dPenStyle, point))
+				{
+					return false;
+				}
+			}
+				break;
+			case Game::PenStyle::NullLine:
+			case Game::PenStyle::InsideFrame:
+			case Game::PenStyle::SolidLine:
+			{
+				SafeRelease(&m_PenStyle);
+			}
+			break;
+			default:
+				return false;
+				break;
+			}
+
 			m_PenWidth = LineWidth;
 			if (!SetPenColor(color))
 				return false;
-			if (!SetPenStyle(d2dPenStyle, {}))
-				return false;
 			return true;
 		}
-		bool SetPenStyle(const D2D1_STROKE_STYLE_PROPERTIES& penStyle, const std::vector<float>dashes)
+		bool SetPenStyle(const D2D1_STROKE_STYLE_PROPERTIES& penStyle, std::vector<float>&dashes)
 		{
 			SafeRelease(&m_PenStyle);
 			auto hr = m_d2dFactory->CreateStrokeStyle(penStyle,
@@ -1302,6 +1419,17 @@ namespace Game
 		bool SetPenColor(COLORREF color)
 		{
 			return SetPenColor(GdiColorToD2DColor(color));
+		}
+
+		//绘制填充多边形
+		bool DrawFillGeometry(POINT* pointArr, int pointCount, COLORREF fillColor)override
+		{
+			return true;
+		}
+		//绘制填充多边形
+		bool DrawFillGeometry(std::vector<POINT>& points, COLORREF fillColor)override
+		{
+			return true;
 		}
 	};
 
