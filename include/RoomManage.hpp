@@ -272,7 +272,7 @@ namespace Game {
 				if (pos < 0)
 					return;
 			}
-			if (pos >= size)
+			if (pos > size)
 			{
 				return;
 			}
@@ -534,7 +534,7 @@ namespace Game {
 					if (pos < 0)
 						return;
 				}
-				if (pos >= size)
+				if (pos > size)
 				{
 					return;
 				}
