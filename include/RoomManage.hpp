@@ -110,11 +110,6 @@ namespace Game {
 	protected:
 
 		float m_Opacity;
-
-		virtual void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera) = 0;
-		virtual void Init(Game::MainWind_D2D* wind) {}
-		virtual void Silent(Game::MainWind_D2D* wind) {}
-		virtual void WindowSizeChange(int w, int h) {}
 	public:
 		RoomObject() :m_Opacity(1.f)
 		{}
@@ -123,6 +118,10 @@ namespace Game {
 		{
 			m_Opacity = opacity;
 		}
+		virtual void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera) = 0;
+		virtual void Init(Game::MainWind_D2D* wind) {}
+		virtual void Silent(Game::MainWind_D2D* wind) {}
+		virtual void WindowSizeChange(int w, int h) {}
 		friend class Room;
 	};
 
@@ -240,16 +239,6 @@ namespace Game {
 			return -1;
 		}
 		/// <summary>
-		/// 直接添加房间对象，没有重复检测
-		/// </summary>
-		/// <param name="obj"></param>
-		void DirectAddObject(RoomObject* obj)
-		{
-			if (!obj)
-				return;
-			m_Objects.push_back(obj);
-		}
-		/// <summary>
 		/// 设置额外的窗口回调函数，用于场景对象缺失时以窗口元素绘制替代
 		/// 非必要不推荐使用
 		/// 此回调会在房间元素绘制完成后绘制
@@ -268,19 +257,36 @@ namespace Game {
 			return m_Camera;
 		}
 		/// <summary>
-		/// 添加房间对象
+		/// 添加场景对象到指定位置
 		/// </summary>
-		/// <param name="obj"></param>
-		void AddObject(RoomObject* obj)
+		/// <param name="obj">要添加的场景对象</param>
+		/// <param name="pos">位置，默认最后</param>
+		void AddObject(RoomObject* obj, long long pos = -1)
 		{
 			if (!obj)
 				return;
+			auto size = m_Objects.size();
+			if (pos < 0)
+			{
+				pos += size + 1;
+				if (pos < 0)
+					return;
+			}
+			if (pos >= size)
+			{
+				return;
+			}
 			if (FindObj(obj) == -1)
-				m_Objects.push_back(obj);
+				m_Objects.insert(m_Objects.begin() + pos, obj);
 		}
-		void AddObject(RoomObject& obj)
+		/// <summary>
+		/// 添加场景对象到指定位置
+		/// </summary>
+		/// <param name="obj">要添加的场景对象</param>
+		/// <param name="pos">位置，默认最后</param>
+		void AddObject(RoomObject& obj, long long pos = -1)
 		{
-			AddObject(&obj);
+			AddObject(&obj, pos);
 		}
 		/// <summary>
 		/// 删除房间对象
@@ -459,6 +465,129 @@ namespace Game {
 
 	namespace RoomObj
 	{
+		class RoomObjectSet :public RoomObject
+		{
+			std::vector<RoomObject*>m_Objects;
+			void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera)override
+			{
+				for (auto& obj : m_Objects)
+				{
+					obj->Draw(wind, Camera);
+				}
+			}
+			void Init(Game::MainWind_D2D* wind)override
+			{
+				for (auto& obj : m_Objects)
+				{
+					obj->Init(wind);
+				}
+			}
+			void Silent(Game::MainWind_D2D* wind)override
+			{
+				for (auto& obj : m_Objects)
+				{
+					obj->Silent(wind);
+				}
+			}
+			void WindowSizeChange(int w, int h)override
+			{
+				for (auto& obj : m_Objects)
+				{
+					obj->WindowSizeChange(w, h);
+				}
+			}
+		public:
+			/// <summary>
+			/// 查找房间对象是否在集合中
+			/// 找到返回对应位置
+			/// 不在返回-1
+			/// 错误传参-2
+			/// </summary>
+			/// <param name="obj"></param>
+			/// <returns></returns>
+			long long FindObj(RoomObject* obj)
+			{
+				if (!obj)
+					return -2;
+				for (unsigned long long i = 0; i < m_Objects.size(); ++i)
+				{
+					if (m_Objects[i] == obj)
+					{
+						return i;
+					}
+				}
+				return -1;
+			}
+			/// <summary>
+			/// 添加场景对象到指定位置
+			/// </summary>
+			/// <param name="obj">要添加的场景对象</param>
+			/// <param name="pos">位置，默认最后,可以小于0</param>
+			void AddObject(RoomObject* obj, long long pos = -1)
+			{
+				if (!obj)
+					return;
+				auto size = m_Objects.size();
+				if (pos < 0)
+				{
+					pos += size + 1;
+					if (pos < 0)
+						return;
+				}
+				if (pos >= size)
+				{
+					return;
+				}
+				if (FindObj(obj) == -1)
+					m_Objects.insert(m_Objects.begin() + pos, obj);
+			}
+			/// <summary>
+			/// 添加场景对象到指定位置
+			/// </summary>
+			/// <param name="obj">要添加的场景对象</param>
+			/// <param name="pos">位置，默认最后，值可以小于0</param>
+			void AddObject(RoomObject& obj, long long pos = -1)
+			{
+				AddObject(&obj, pos);
+			}
+			/// <summary>
+			/// 删除房间对象
+			/// </summary>
+			/// <param name="obj"></param>
+			void DeleteObj(RoomObject* obj)
+			{
+				if (!obj)
+					return;
+				auto i = FindObj(obj);
+				if (i >= 0)
+					m_Objects.erase(m_Objects.begin() + i);
+			}
+			void DeleteObj(long long pos)
+			{
+				auto size = m_Objects.size();
+				if (pos < 0)
+				{
+					pos += size;
+					if (pos < 0)
+						return;
+				}
+				if (pos > size)
+				{
+					return;
+				}
+				m_Objects.erase(m_Objects.begin() + pos);
+			}
+			void DeleteObj(RoomObject& obj)
+			{
+				DeleteObj(&obj);
+			}
+			RoomObject* GetObj(long long id)
+			{
+				if (id < 0 || id >= m_Objects.size())
+					return nullptr;
+				return m_Objects[id];
+			}
+		};
 		/// <summary>
 		/// 场景ui元素。
 		/// 直接绘制到窗口。
@@ -775,24 +904,51 @@ namespace Game {
 
 		class AnimationUI:public RoomUI
 		{
-			WindControl::d2dPictureAnimationBase* m_Animation;
+			WindControl::d2dPictureAnimationBase* m_AnimationData;
+			int m_CurrentIndex;
+			std::vector<int>m_Index;
+			float m_SwitchTime;
+			float m_CurrentTime;
 		public:
-			AnimationUI(WindControl::d2dPictureAnimationBase* data = nullptr) :m_Animation(data) {}
-			void SetData(WindControl::d2dPictureAnimationBase* AnimationData)
+			AnimationUI() :m_AnimationData(nullptr), m_SwitchTime(100), m_CurrentTime(0), m_CurrentIndex(0) {}
+			void SetData(WindControl::d2dPictureAnimationBase* data)
 			{
-				m_Animation = AnimationData;
+				m_AnimationData = data;
 			}
-			WindControl::d2dPictureAnimationBase* GetCurrentData()const
+			auto* GetCurrentAnimation()const
 			{
-				return m_Animation;
+				return m_AnimationData;
+			}
+			void SetIndex(const std::vector<int>& Index)
+			{
+				m_Index = Index;
+			}
+			void SetSwitchTime(float ms)
+			{
+				m_SwitchTime = ms;
+			}
+			void NextPicture()
+			{
+				++m_CurrentIndex;
+				if (m_CurrentIndex >= m_Index.size())
+				{
+					m_CurrentIndex = 0;
+				}
 			}
 			void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera)override
 			{
-				if (!wind || (!m_Animation))
+				if (!wind || (!m_AnimationData))
 					return;
-				m_Animation->SetShowRect(m_ShowRectangle);
-				m_Animation->SetOpacity(m_Opacity);
-				m_Animation->Draw(wind);
+				m_AnimationData->SetShowRect(m_ShowRectangle);
+				m_AnimationData->SetOpacity(m_Opacity);
+				m_CurrentTime += wind->GetPaintIntervalTime();
+				while (m_CurrentTime > m_SwitchTime)
+				{
+					NextPicture();
+					m_CurrentTime -= m_SwitchTime;
+				}
+				m_AnimationData->ToPicture(m_Index[m_CurrentIndex], false);
+				m_AnimationData->Draw(wind);
 
 			}
 			void Init(Game::MainWind_D2D* m_wind)override
@@ -1138,6 +1294,10 @@ namespace Game {
 			void SetData(WindControl::d2dPictureAnimationBase* data)
 			{
 				m_AnimationData = data;
+			}
+			auto* GetCurrentAnimation()const
+			{
+				return m_AnimationData;
 			}
 			void SetIndex(const std::vector<int>& Index)
 			{

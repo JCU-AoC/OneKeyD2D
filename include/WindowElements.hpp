@@ -43,6 +43,10 @@ namespace Game
 				m_ShowRectangle.right += wDifference;
 				m_ShowRectangle.bottom += hDifference;
 			}
+			virtual D2D1_POINT_2F GetPosition()const
+			{
+				return D2D1::Point2F(m_ShowRectangle.left, m_ShowRectangle.top);
+			}
 			/// <summary>
 			/// 显示区域的宽度与高度
 			/// </summary>
@@ -377,6 +381,8 @@ namespace Game
 			void SetShowText(const std::wstring& showString)
 			{
 				m_ShowText = showString;
+				float fontSize = this->GetTextFontSize();
+				SetShowWide(fontSize * m_ShowText.size(), fontSize);
 			}
 			const std::wstring& GetShowText()const
 			{
@@ -843,10 +849,41 @@ namespace Game
 		//绘制几何图形/多边形
 		class d2dGeometry:public d2dElements
 		{
+			MainWind_D2D* m_window = nullptr;
 			ID2D1SolidColorBrush* m_Color;
+			ID2D1SolidColorBrush* m_FillColor = nullptr;
 			ID2D1PathGeometry* pGeometry;
 			ID2D1GeometrySink* pSink;
 			bool m_Fill;
+			std::vector<D2D1_POINT_2F>m_Path;
+			std::vector<D2D1_POINT_2F>m_WindowPath;
+			bool SetPath(D2D1_FILL_MODE FillMode)
+			{
+				if (!m_window)
+					return false;
+				SafeRelease(&pGeometry);
+				SafeRelease(&pSink);
+				auto hr = m_window->GetD2DFactoryP()->CreatePathGeometry(&pGeometry);
+				if(SUCCEEDED(hr))
+				{
+					hr = pGeometry->Open(&pSink);
+					if (SUCCEEDED(hr))
+					{
+						pSink->SetFillMode(FillMode);
+						pSink->BeginFigure(m_WindowPath.front(), D2D1_FIGURE_BEGIN_FILLED);
+						pSink->AddLines(&m_WindowPath[1], m_WindowPath.size() - 1);
+						pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
+						pSink->Close();
+
+						return true;
+					}
+					else
+						std::cout << hr << std::endl;
+				}
+				else
+					std::cout << hr << std::endl;
+				return false;
+			}
 		public:
 			d2dGeometry() :m_Color(nullptr), pSink(nullptr), pGeometry(nullptr), m_Fill(false) {}
 			~d2dGeometry()
@@ -854,18 +891,26 @@ namespace Game
 				SafeRelease(&m_Color);
 				SafeRelease(&pGeometry);
 				SafeRelease(&pSink);
+				SafeRelease(&m_FillColor);
 			}
-			bool Init(ID2D1Factory* fac)
+			void SetPosition(float x, float y)override
 			{
-				if (!fac)
-					return false;
-				HRESULT hr = fac->CreatePathGeometry(&pGeometry);
-				if (FAILED(hr))
-					return false;
+				float wDifference = x - m_ShowRectangle.left;
+				float hDifference = y - m_ShowRectangle.top;
+				m_ShowRectangle.left += wDifference;
+				m_ShowRectangle.top += hDifference;
+				m_ShowRectangle.right += wDifference;
+				m_ShowRectangle.bottom += hDifference;
+				SetPath(m_window,m_Path);
 			}
-			void Fill(bool fill = true)
+			void Fill(bool fill = true, MainWind_D2D* window = nullptr, const D2D1::ColorF& color = D2D1::ColorF::White)
 			{
 				m_Fill = fill;
+				if (window)
+				{
+					SafeRelease(&m_FillColor);
+					window->GetD2DTargetP()->CreateSolidColorBrush(color, &m_FillColor);
+				}
 			}
 			ID2D1GeometrySink* GetNewSink()
 			{
@@ -879,18 +924,22 @@ namespace Game
 			{
 				return pSink;
 			}
-			bool SetPath(const std::vector<D2D1_POINT_2F>& points,
+			bool SetPath(MainWind_D2D* window,std::vector<D2D1_POINT_2F>& points,
 				D2D1_FILL_MODE FillMode = D2D1_FILL_MODE::D2D1_FILL_MODE_ALTERNATE)
 			{
-				SafeRelease(&pSink);
-				pGeometry->Open(&pSink);
-				pSink->SetFillMode(FillMode);
-				pSink->BeginFigure(points.front(), D2D1_FIGURE_BEGIN_FILLED);
-				for (UINT32 i = 1; i < points.size(); i++) {
-					pSink->AddLine(points[i]);
+				if (!window)
+					return false;
+				m_window = window;
+				auto pSize = points.size();
+				m_Path = points;
+				m_WindowPath.resize(pSize);
+				auto ShowPos = GetPosition();
+				for (int i = 0; i < pSize; ++i)
+				{
+					auto& point = points[i];
+					m_WindowPath[i] = D2D1::Point2F(point.x + ShowPos.x, point.y + ShowPos.y);
 				}
-				pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
-				pSink->Close();
+				SetPath(FillMode);
 				return true;
 			}
 
@@ -912,6 +961,13 @@ namespace Game
 				if (!m_Color || !pGeometry || !wind)
 					return false;
 				wind->DrawGeometry(pGeometry, m_Color);
+				if (m_Fill)
+				{
+					if (m_FillColor)
+						wind->FillGeometry(pGeometry, m_FillColor);
+					else
+						wind->FillGeometry(pGeometry, m_Color);
+				}
 				return true;
 			}
 		};

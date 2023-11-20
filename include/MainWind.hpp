@@ -1148,7 +1148,7 @@ namespace Game
 			return S_OK;
 		}
 
-		static COLORREF D2DColorFToGdiColor(D2D1::ColorF colorF)
+		static COLORREF D2DColorFToGdiColor(const D2D1::ColorF& colorF)
 		{
 			BYTE redByte = static_cast<BYTE>(colorF.r * 255);
 			BYTE greenByte = static_cast<BYTE>(colorF.g * 255);
@@ -1274,7 +1274,7 @@ namespace Game
 			m_d2dRenderTarget->DrawText(ShowText.c_str(), (int)ShowText.size(), m_TextFormat, rect, m_PenBrush);
 			return true;
 		}
-		bool DrawGeometry(D2D1_POINT_2F* pointArr, int pointCount, bool Fill = true)
+		bool DrawGeometry(D2D1_POINT_2F* pointArr, int pointCount, bool Fill = false, const D2D1::ColorF& FillColor = D2D1::ColorF::White)
 		{
 			if (!m_d2dRenderTarget||!m_PenBrush)
 				return false;
@@ -1301,9 +1301,15 @@ namespace Game
 				SafeRelease(&pSink);
 			}
 			if (Fill)
-				m_d2dRenderTarget->FillGeometry(pathGeometry, m_PenBrush);
+			{
+				ID2D1SolidColorBrush* fillBrush;
+				m_d2dRenderTarget->CreateSolidColorBrush(FillColor, &fillBrush);
+				m_d2dRenderTarget->FillGeometry(pathGeometry, m_PenBrush, fillBrush);
+				SafeRelease(&fillBrush);
+			}
 			else
 				m_d2dRenderTarget->DrawGeometry(pathGeometry, m_PenBrush, m_PenWidth, m_PenStyle);
+			SafeRelease(&pathGeometry);
 			return true;
 		}
 		//绘制多边形
@@ -1319,7 +1325,9 @@ namespace Game
 				POINT poi=pointArr[i];
 				arr[i]=D2D1::Point2F(poi.x,poi.y);
 			}
-			return DrawGeometry(arr, pointCount, false);
+			auto r= DrawGeometry(arr, pointCount, false);
+			delete[] arr;
+			return r;
 		}
 		//绘制多边形
 		bool DrawGeometry(std::vector<POINT>&points)override
@@ -1424,12 +1432,22 @@ namespace Game
 		//绘制填充多边形
 		bool DrawFillGeometry(POINT* pointArr, int pointCount, COLORREF fillColor)override
 		{
-			return true;
+			if (!m_d2dRenderTarget)
+				return false;
+			D2D1_POINT_2F* arr = new D2D1_POINT_2F[pointCount];
+			if (!arr)
+				return false;
+			for (UINT32 i = 0; i < pointCount; i++)
+			{
+				POINT poi = pointArr[i];
+				arr[i] = D2D1::Point2F(poi.x, poi.y);
+			}
+			return DrawGeometry(arr, pointCount, true, GdiColorToD2DColor(fillColor));
 		}
 		//绘制填充多边形
 		bool DrawFillGeometry(std::vector<POINT>& points, COLORREF fillColor)override
 		{
-			return true;
+			return DrawFillGeometry(points.data(), points.size(), fillColor);
 		}
 	};
 
