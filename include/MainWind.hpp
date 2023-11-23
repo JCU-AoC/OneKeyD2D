@@ -399,6 +399,11 @@ namespace Game
 			GetWindowRect(m_hWnd, &rect);
 			return rect;
 		}
+		void SetWindowSize(int w,int h)
+		{
+			auto rect = GetWindRect();
+			MoveWind(rect.left, rect.top, w, h);
+		}
 		void MoveWind(int x, int y, int w, int h)const
 		{
 			MoveWindow(m_hWnd, x, y, w, h, true);
@@ -1299,16 +1304,17 @@ namespace Game
 					hr = pSink->Close();
 				}
 				SafeRelease(&pSink);
+				if (Fill)
+				{
+					ID2D1SolidColorBrush* fillBrush;
+					m_d2dRenderTarget->CreateSolidColorBrush(FillColor, &fillBrush);
+					m_d2dRenderTarget->FillGeometry(pathGeometry, m_PenBrush, fillBrush);
+					SafeRelease(&fillBrush);
+				}
+				else
+					m_d2dRenderTarget->DrawGeometry(pathGeometry, m_PenBrush, m_PenWidth, m_PenStyle);
 			}
-			if (Fill)
-			{
-				ID2D1SolidColorBrush* fillBrush;
-				m_d2dRenderTarget->CreateSolidColorBrush(FillColor, &fillBrush);
-				m_d2dRenderTarget->FillGeometry(pathGeometry, m_PenBrush, fillBrush);
-				SafeRelease(&fillBrush);
-			}
-			else
-				m_d2dRenderTarget->DrawGeometry(pathGeometry, m_PenBrush, m_PenWidth, m_PenStyle);
+
 			SafeRelease(&pathGeometry);
 			return true;
 		}

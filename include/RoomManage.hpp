@@ -396,6 +396,10 @@ namespace Game {
 		{
 			m_wind = m_wind;
 		}
+		int AddRoom(Room& room, int id)
+		{
+			return AddRoom(&room, id);
+		}
 		/// <summary>
 		/// id返回小于0表示添加失败或
 		/// </summary>
@@ -1102,18 +1106,8 @@ namespace Game {
 
 			void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera)override
 			{
-				Vector::Vec2 Point1 = ScenceToCamera(m_Position, Camera);
-				if (Point1.x > Camera.m_ShowWide.x+2 || Point1.y >  Camera.m_ShowWide.y+2)
-					return;
-				Vector::Vec2 Point2 = ScenceToCamera(m_Position + m_Wide, Camera);
-				if (Point2.x < -2 || Point2.y < -2)
-					return;
-				Point2 = Point1 + m_Wide;
-				Point1 = CameraToWindow(Point1, wind, Camera);
-
-				Point2 = CameraToWindow(Point2, wind, Camera);
-
-				//m_Image->SetRotate(m_Rotate.GetRadian(), m_Rotate.GetPoint().ToPointD2D());
+				Vector::Vec2 Point1 = ScenceToWindow(m_Position - m_Wide * 0.5, wind, Camera);
+				Vector::Vec2 Point2 = ScenceToWindow(m_Position + m_Wide * 0.5, wind, Camera);
 				m_Image->SetShowRect({ Point1.x, Point1.y,Point2.x,Point2.y });
 				m_Image->SetOpacity(m_Opacity);
 				m_Image->Draw(wind->GetD2DTargetP(), m_Crop);
@@ -1256,8 +1250,8 @@ namespace Game {
 				if (!wind || (!m_Data))
 					return;
 				m_Data->SetSwitchTime(-1);
-
-				m_Data->SetShowWide(CameraToWindow(m_ImageWide, wind, Camera)+1);
+				auto ImageWide = CameraToWindow(m_ImageWide, wind, Camera) + 1;
+				m_Data->SetShowWide(ImageWide);
 				Vector::Vec2 rightTop(Camera.m_Position + Camera.m_ShowWide * 0.5 - m_Position);
 				Vector::Vec2 leftBottom(Camera.m_Position - Camera.m_ShowWide * 0.5 - m_Position);
 
@@ -1272,7 +1266,7 @@ namespace Game {
 
 						auto Point1 = Vector::Vec2(x, y) + m_Position;
 						Point1 = ScenceToWindow(Point1, wind, Camera);
-						m_Data->SetShowPosition(Point1);
+						m_Data->SetShowPosition(Point1-ImageWide*0.5);
 						m_Data->SetOpacity(m_Opacity);
 						m_Data->ToPicture(index);
 						m_Data->Draw(wind);

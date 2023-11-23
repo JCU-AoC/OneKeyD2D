@@ -253,6 +253,16 @@ namespace Game
 				nowWide.height *= heightScale;
 				SetShowWide(nowWide.width, nowWide.height);
 			}
+			void SetPosition(float x, float y)override
+			{
+				float wDifference = x - m_ShowRectangle.left;
+				float hDifference = y - m_ShowRectangle.top;
+				m_ShowRectangle.left += wDifference;
+				m_ShowRectangle.top += hDifference;
+				m_ShowRectangle.right += wDifference;
+				m_ShowRectangle.bottom += hDifference;
+				SetRotate(m_Angle, m_RotateCenter);
+			}
 			/// <summary>
 			/// 让图像绕指定点旋转
 			/// </summary>
@@ -260,6 +270,8 @@ namespace Game
 			/// <param name="center">取值为0-1，表示显示矩阵中旋转的位置</param>
 			void SetRotate(float angle, const D2D1_POINT_2F& center = D2D1::Point2F())
 			{
+				m_Angle = angle;
+				m_RotateCenter = center;
 				D2D1_POINT_2F CenterR = center;
 				CenterR.x = (m_ShowRectangle.right - m_ShowRectangle.left) * center.x + m_ShowRectangle.left;
 				CenterR.y = (m_ShowRectangle.bottom - m_ShowRectangle.top) * center.y + m_ShowRectangle.top;
@@ -324,6 +336,9 @@ namespace Game
 			ID2D1Bitmap* m_Bitmap;
 			D2D1::Matrix3x2F m_Rotation;
 			D2D1_MATRIX_3X2_F originalTransform;
+
+			float m_Angle = 0;
+			D2D1_POINT_2F m_RotateCenter = D2D1::Point2F();
 		};
 		class d2dText :public d2dElements
 		{
@@ -381,8 +396,6 @@ namespace Game
 			void SetShowText(const std::wstring& showString)
 			{
 				m_ShowText = showString;
-				float fontSize = this->GetTextFontSize();
-				SetShowWide(fontSize * m_ShowText.size(), fontSize);
 			}
 			const std::wstring& GetShowText()const
 			{
@@ -606,6 +619,8 @@ namespace Game
 			D2D1_ROUNDED_RECT m_Rect;
 
 			float m_PenWide;
+			float m_Angle = 0;
+			D2D1_POINT_2F m_RotateCenter = D2D1::Point2F();
 			bool m_Fill;
 			bool m_Round;
 		public:
@@ -650,6 +665,7 @@ namespace Game
 				m_ShowRectangle.right += wDifference;
 				m_ShowRectangle.bottom += hDifference;
 				m_Rect.rect = m_ShowRectangle;
+				SetRotate(m_Angle, m_RotateCenter);
 			}
 			/// <summary>
 			/// 显示区域的宽度与高度
@@ -672,9 +688,12 @@ namespace Game
 			}
 			void SetRotate(float angle, const D2D1_POINT_2F& center = D2D1::Point2F())
 			{
+				m_RotateCenter = center;
 				D2D1_POINT_2F CenterR = center;
 				CenterR.x = (m_ShowRectangle.right - m_ShowRectangle.left) * center.x + m_ShowRectangle.left;
 				CenterR.y = (m_ShowRectangle.bottom - m_ShowRectangle.top) * center.y + m_ShowRectangle.top;
+				
+				m_Angle = angle;
 				m_Rotation = D2D1::Matrix3x2F::Rotation(angle, CenterR);
 			}
 			bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
@@ -707,7 +726,7 @@ namespace Game
 					return false;
 
 				d2dRenderTarget->GetTransform(&originalTransform);
-				d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
+				d2dRenderTarget->SetTransform(originalTransform * m_Rotation);
 				if (m_Fill)
 					if (m_Round)
 						d2dRenderTarget->FillRoundedRectangle(m_Rect, m_Color);
@@ -749,7 +768,8 @@ namespace Game
 		};
 		class d2dFoldLine:public d2dElements
 		{
-			std::vector<D2D1_POINT_2F>m_data;
+			std::vector<D2D1_POINT_2F>m_DrawData;
+			std::vector<D2D1_POINT_2F>m_rawData;
 			ID2D1SolidColorBrush* m_Color;
 			ID2D1StrokeStyle* m_PenStyle;
 			float m_LineWide;
@@ -764,7 +784,18 @@ namespace Game
 			d2dFoldLine(const std::vector<D2D1_POINT_2F>& data, const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget) :m_LineWide(1.f), m_PenStyle(nullptr)
 			{
 				SetColor(color, renderTarget);
-				m_data = data;
+				SetFoldLine(data);
+			}
+			void SetPosition(float x, float y)override
+			{
+				float wDifference = x - m_ShowRectangle.left;
+				float hDifference = y - m_ShowRectangle.top;
+				m_ShowRectangle.left += wDifference;
+				m_ShowRectangle.top += hDifference;
+				m_ShowRectangle.right += wDifference;
+				m_ShowRectangle.bottom += hDifference;
+
+				SetFoldLine(m_rawData);
 			}
 			void SetLineWide(float wide)
 			{
@@ -781,17 +812,30 @@ namespace Game
 					std::cout << "列表数量不匹配" << std::endl;
 					return false;
 				}
-				m_data.resize(xList.size());
-				for (size_t p = 0; p < m_data.size(); ++p)
+				std::vector<D2D1_POINT_2F>data(xList.size());
+				for (size_t p = 0; p < data.size(); ++p)
 				{
-					m_data[p] = D2D1::Point2F(xList[p], yList[p]);
+					data[p] = D2D1::Point2F(xList[p], yList[p]);
 				}
+				SetFoldLine(data);
 				return true;
 			}
 			bool SetFoldLine(const std::vector<D2D1_POINT_2F>&data)
 			{
-				m_data = data;
+				m_rawData = data;
+				auto size = m_rawData.size();
+				m_DrawData.resize(size);
+				auto position = GetPosition();
+				for (size_t p = 0; p < size; ++p)
+				{
+					auto rd = m_rawData[p];
+					m_DrawData[p] = D2D1::Point2F(rd.x + position.x, rd.y + position.y);
+				}
 				return true;
+			}
+			bool SetColor(const D2D1_COLOR_F& color, MainWind_D2D* window)
+			{
+				return SetColor(color, window->GetD2DTargetP());
 			}
 			bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
 			{
@@ -802,43 +846,98 @@ namespace Game
 					return true;
 				return false;
 			}
-			bool SetPenStyle(const D2D1_STROKE_STYLE_PROPERTIES& penStyle, const std::vector<float>dashes)
+			bool SetPen(MainWind_D2D* window, const D2D1::ColorF& color, PenStyle penStyle = PenStyle::SolidLine, int LineWidth = 1)
+			{
+				D2D1_STROKE_STYLE_PROPERTIES d2dPenStyle = D2D1::StrokeStyleProperties(
+					D2D1_CAP_STYLE_FLAT,
+					D2D1_CAP_STYLE_FLAT,
+					D2D1_CAP_STYLE_ROUND,
+					D2D1_LINE_JOIN_MITER,
+					10.0f,
+					D2D1_DASH_STYLE_CUSTOM,
+					0.0f);
+				switch (penStyle)
+				{
+				case Game::PenStyle::DashedLine:
+				{
+					std::vector<float> point = { 5,3 };
+					if (!SetPenStyle(window,d2dPenStyle, point))
+					{
+						return false;
+					}
+				}
+				break;
+				case Game::PenStyle::DotLine:
+				{
+					std::vector<float> point = { 1,3 };
+					if (!SetPenStyle(window,d2dPenStyle, point))
+					{
+						return false;
+					}
+				}
+				break;
+				case Game::PenStyle::DashDot:
+				{
+					std::vector<float> point = { 10,5,1,5 };
+					if (!SetPenStyle(window,d2dPenStyle, point))
+					{
+						return false;
+					}
+				}
+				break;
+				case Game::PenStyle::DashDotDot:
+				{
+					std::vector<float> point = { 10,5,1,5,1,5 };
+					if (!SetPenStyle(window,d2dPenStyle, point))
+					{
+						return false;
+					}
+				}
+				break;
+				case Game::PenStyle::NullLine:
+				case Game::PenStyle::InsideFrame:
+				case Game::PenStyle::SolidLine:
+				{
+					SafeRelease(&m_PenStyle);
+				}
+				break;
+				default:
+					return false;
+					break;
+				}
+
+				m_LineWide = LineWidth;
+				if (!SetColor(color, window))
+					return false;
+				return true;
+			}
+			bool SetPenStyle(MainWind_D2D* window, const D2D1_STROKE_STYLE_PROPERTIES& penStyle, const std::vector<float>& dashes)
+			{
+				return SetPenStyle(window->GetD2DFactoryP(), penStyle, dashes);
+			}
+			bool SetPenStyle(ID2D1Factory* factory,const D2D1_STROKE_STYLE_PROPERTIES& penStyle, const std::vector<float>&dashes)
 			{
 				SafeRelease(&m_PenStyle);
-				ID2D1Factory* d2dFactory = nullptr;
-				if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &d2dFactory)))
-					return false;
-				HRESULT hr;
-				if (dashes.empty())
-				{
-					hr = d2dFactory->CreateStrokeStyle(penStyle,
-						nullptr,
-						0,
-						&m_PenStyle);
-				}
-				else
-				{
-					hr = d2dFactory->CreateStrokeStyle(penStyle,
-						dashes.data(),
-						dashes.size(),
-						&m_PenStyle);
-				}
-				SafeRelease(&d2dFactory);
+				auto hr = factory->CreateStrokeStyle(penStyle,
+					dashes.data(),
+					dashes.size(),
+					&m_PenStyle);
 				if (FAILED(hr))
 					return false;
 				return true;
 			}
 			bool Draw(ID2D1RenderTarget* d2dRenderTarget)override
 			{
-				if (!d2dRenderTarget || !m_Color || m_data.size() < 2)
+				if (!d2dRenderTarget || !m_Color || m_DrawData.size() < 2)
 					return false;
-				for (size_t p = 0; p < m_data.size() - 1; ++p)
+				for (size_t p = 0; p < m_DrawData.size() - 1; ++p)
 				{
 					if(m_PenStyle)
-						d2dRenderTarget->DrawLine(m_data[p], m_data[p + 1], m_Color, m_LineWide,m_PenStyle);
+						d2dRenderTarget->DrawLine(m_DrawData[p], m_DrawData[p + 1], m_Color, m_LineWide,m_PenStyle);
 					else
-						d2dRenderTarget->DrawLine(m_data[p], m_data[p + 1], m_Color, m_LineWide);
+						d2dRenderTarget->DrawLine(m_DrawData[p], m_DrawData[p + 1], m_Color, m_LineWide);
 				}
+				
 				return true;
 			}
 			bool Draw(MainWind_D2D* d2dWind)override
@@ -985,6 +1084,43 @@ namespace Game
 			{
 				SafeRelease(&m_Color);
 			}
+			void SetPosition(float x, float y)override
+			{
+				float wDifference = x - m_ShowRectangle.left;
+				float hDifference = y - m_ShowRectangle.top;
+				m_ShowRectangle.left += wDifference;
+				m_ShowRectangle.top += hDifference;
+				m_ShowRectangle.right += wDifference;
+				m_ShowRectangle.bottom += hDifference;
+				m_Ellipse.point.x = (m_ShowRectangle.left + m_ShowRectangle.right) * 0.5f;
+				m_Ellipse.point.y = (m_ShowRectangle.top + m_ShowRectangle.bottom) * 0.5f;
+			}
+			void SetShowWide(float w,float h)override
+			{
+				auto pos = GetPosition();
+				SetShowRect(D2D1::RectF(pos.x, pos.y, pos.x + w, pos.y + h));
+			}
+			void SetShowRect(const D2D1_RECT_F& rect)override
+			{
+				m_ShowRectangle = rect;
+				auto size = GetShowSize();
+				m_Ellipse.point.x = m_ShowRectangle.left + size.width * 0.5f;
+				m_Ellipse.point.y = m_ShowRectangle.top + size.height * 0.5f;
+				m_Ellipse.radiusX = size.width * 0.5f;
+				m_Ellipse.radiusY = size.height * 0.5f;
+			}
+			void SetEllipticalPosition(float x, float y)
+			{
+				auto size = GetShowSize();
+				size.width *= 0.5;
+				size.height *= 0.5;
+				SetShowRect(D2D1::RectF(x - size.width, y - size.height, x + size.width, y + size.height));
+			}
+			void SetRadius(float x, float y)
+			{
+				auto pos = GetPosition();
+				SetShowRect(D2D1::RectF(pos.x - x, pos.y - y, pos.x + x, pos.y + y));
+			}
 			bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
 			{
 				if (!renderTarget)
@@ -1002,16 +1138,7 @@ namespace Game
 			{
 				m_Wide = wide;
 			}
-			void SetEllipticalPosition(float x,float y)
-			{
-				m_Ellipse.point.x = x;
-				m_Ellipse.point.y = y;
-			}
-			void SetRadius(float x, float y)
-			{
-				m_Ellipse.radiusX = x;
-				m_Ellipse.radiusY = y;
-			}
+
 			bool Draw(MainWind_D2D* wind)
 			{
 				return Draw(wind->GetD2DTargetP());

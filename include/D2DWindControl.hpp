@@ -36,6 +36,8 @@ namespace Game {
 				m_ShowText.SetShowWide(w, h);
 				m_ShowText.SetShowText(str);
 				m_ShowText.SetColor(strColor,TargetWind->GetD2DTargetP());
+				m_ShowText.SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+				m_ShowText.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 				m_CheckRect.SetPosition(x, y);
 				m_CheckRect.SetWide(w, h);
 				m_CheckRect.SetButtonCallback(callback);
@@ -317,7 +319,6 @@ namespace Game {
 
 		/// <summary>
 		///  绘制折线函数图像(背景透明)
-		/// 吃内存大户
 		/// </summary>
 		class d2dFunctionWind
 		{
@@ -554,8 +555,8 @@ namespace Game {
 				m_ticksY.clear();
 				float xWide = m_ShowRect.right - m_ShowRect.left - m_Interval * 2;
 				float yWide = m_ShowRect.bottom - m_ShowRect.top - m_Interval * 2;
-				float xTick = xWide / (xTickSign.size());
-				float yTick = yWide / (yTickSign.size());
+				float xTick = xWide / (xTickSign.size() - 1);
+				float yTick = yWide / (yTickSign.size() - 1);
 				float originX = m_ShowRect.left + m_Interval;
 				float originY = m_ShowRect.bottom - m_Interval;
 
