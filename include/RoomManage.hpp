@@ -1313,8 +1313,11 @@ namespace Game {
 			{
 				if (!wind || (!m_AnimationData))
 					return;
-				m_AnimationData->SetShowPosition(ScenceToWindow(m_Position, wind, Camera));
-				m_AnimationData->SetShowWide(CameraToWindow(m_Wide, wind, Camera));
+				auto Position = ScenceToWindow(m_Position, wind, Camera);
+				auto ShowWide = CameraToWindow(m_Wide, wind, Camera) * 0.5;
+				auto LeftTop = Position - ShowWide;
+				auto RightBottom = Position + ShowWide;
+				m_AnimationData->SetShowRect(D2D1::RectF(LeftTop.x, LeftTop.y, RightBottom.x, RightBottom.y));
 				m_AnimationData->SetOpacity(m_Opacity);
 
 				m_CurrentTime += wind->GetPaintIntervalTime();
