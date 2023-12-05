@@ -664,6 +664,11 @@ namespace Vector {
         {
             return Vector2(data.x, data.y);
         }
+        template <typename Type2>
+        Vector2<Type2> ToType()
+        {
+            return Vector2<Type2>(x, y);
+        }
         Vector2 operator-(const Vector2& vec) const
         {
             return Subtract(vec);

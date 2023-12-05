@@ -275,7 +275,15 @@ public:
     }
     virtual ~MainWind() { }
     virtual HRESULT CreateWind(HWND parent = nullptr, HINSTANCE hInstance = HINST_THISCOMPONENT) = 0;
-
+    /// <summary>
+    /// 创建窗口
+    /// </summary>
+    /// <param name="window">父窗口</param>
+    /// <returns></returns>
+    HRESULT CreateWind(MainWind* window)
+    {
+        CreateWind(window->GethWnd());
+    }
     /// <summary>
     /// 由系统调用，不开放使用
     /// 有需要使用UserData
@@ -285,6 +293,11 @@ public:
     {
         return m_SystemData;
     }
+    /// <summary>
+    /// 添加窗口样式
+    /// </summary>
+    /// <param name="Style">窗口样式</param>
+    /// <param name="ExStyle">扩展样式</param>
     void AddWindowStyle(LONG Style, LONG ExStyle = 0)
     {
         LONG style = GetWindowLong(m_hWnd, GWL_STYLE);
@@ -297,6 +310,11 @@ public:
         SetWindowLong(m_hWnd, GWL_EXSTYLE, exStyle);
         UpdateWindow(m_hWnd);
     }
+    /// <summary>
+    /// 关闭窗口样式
+    /// </summary>
+    /// <param name="Style"></param>
+    /// <param name="ExStyle">扩展样式</param>
     void NegationWindowStyle(LONG Style, LONG ExStyle = 0)
     {
         LONG style = GetWindowLong(m_hWnd, GWL_STYLE);
@@ -309,6 +327,10 @@ public:
         SetWindowLong(m_hWnd, GWL_EXSTYLE, exStyle);
         UpdateWindow(m_hWnd);
     }
+    /// <summary>
+    /// 隐藏标题栏
+    /// </summary>
+    /// <param name="hide"></param>
     void HideTitleBar(bool hide = true)
     {
         RECT rcClient, rcWindow;
@@ -326,6 +348,10 @@ public:
             SetWindowPos(m_hWnd, NULL, rcWindow.left, rcWindow.top - titleBarHeight, clientWidth, clientHeight + titleBarHeight, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
         }
     }
+    /// <summary>
+    /// 全屏显示
+    /// </summary>
+    /// <param name="full"></param>
     void FullScreenDisplay(bool full = true)
     {
 
@@ -340,10 +366,18 @@ public:
             SetWindowPos(m_hWnd, NULL, 200, 200, 800, 600, SWP_SHOWWINDOW);
         }
     }
+    /// <summary>
+    /// 设置鼠标回调
+    /// </summary>
+    /// <param name="mcb"></param>
     void SetMouseCallback(WindCallback::MouseCallback mcb)
     {
         m_MouseCallback = mcb;
     }
+    /// <summary>
+    /// 获取当前鼠标回调
+    /// </summary>
+    /// <returns></returns>
     const WindCallback::MouseCallback& GetMouseCallback() const
     {
         return m_MouseCallback;
@@ -415,6 +449,9 @@ public:
     {
         return m_hWnd;
     }
+    /// <summary>
+    /// 关闭窗口
+    /// </summary>
     void CloseWind()
     {
         if (m_hWnd)
@@ -438,44 +475,81 @@ public:
         if (m_hWnd)
             InvalidateRect(m_hWnd, NULL, false);
     }
-
+    /// <summary>
+    /// 获取窗口大小
+    /// </summary>
+    /// <returns></returns>
     SIZE GetWindSize() const
     {
         RECT rect;
         GetClientRect(m_hWnd, &rect);
         return { rect.right, rect.bottom };
     }
+    /// <summary>
+    /// 获取窗口所在位置的矩形区域
+    /// </summary>
+    /// <returns></returns>
     RECT GetWindRect() const
     {
         RECT rect;
         GetWindowRect(m_hWnd, &rect);
         return rect;
     }
+    /// <summary>
+    /// 设置窗口大小
+    /// </summary>
+    /// <param name="w">宽度</param>
+    /// <param name="h">高度</param>
     void SetWindowSize(int w, int h)
     {
         auto rect = GetWindRect();
         MoveWind(rect.left, rect.top, w, h);
     }
+    /// <summary>
+    /// 移动窗口
+    /// </summary>
+    /// <param name="x">位置横坐标</param>
+    /// <param name="y">位置纵坐标</param>
+    /// <param name="w">宽度</param>
+    /// <param name="h">高度</param>
     void MoveWind(int x, int y, int w, int h) const
     {
         MoveWindow(m_hWnd, x, y, w, h, true);
     }
+    /// <summary>
+    /// 设置窗口标题
+    /// </summary>
+    /// <param name="text"></param>
     void SetText(const std::wstring& text) const
     {
         SetWindowTextW(m_hWnd, text.c_str());
     }
+    /// <summary>
+    /// 设置窗口标题
+    /// </summary>
+    /// <param name="text"></param>
     void SetText(const std::string& text) const
     {
         SetWindowTextA(m_hWnd, text.c_str());
     }
+    /// <summary>
+    /// 显示窗口
+    /// </summary>
     void ShowWind() const
     {
         ShowWindow(m_hWnd, SW_SHOW);
     }
+    /// <summary>
+    /// 隐藏窗口
+    /// </summary>
     void HideWind() const
     {
         ShowWindow(m_hWnd, SW_HIDE);
     }
+    /// <summary>
+    /// 添加检测器到窗口
+    /// </summary>
+    /// <param name="db"></param>
     void AddButten(WindElements::d2dClickDetection* db)
     {
         m_Buttons.insert(db);
@@ -494,14 +568,26 @@ public:
             m_Buttons.clear();
         m_ButtonChange = true;
     }
+    /// <summary>
+    /// 设置用户数据
+    /// </summary>
+    /// <param name="data">64位整数</param>
     void SetUserData(LPARAM data)
     {
         m_UserData = data;
     }
+    /// <summary>
+    /// 获取用户数据
+    /// </summary>
+    /// <returns></returns>
     const LPARAM& GetUserData() const
     {
         return m_UserData;
     }
+    /// <summary>
+    /// 获取用户数据的引用
+    /// </summary>
+    /// <returns></returns>
     LPARAM& GetUserData()
     {
         return m_UserData;
@@ -650,6 +736,12 @@ public:
             UnregisterClassW(WindClassName::MAIN_WINDOW_GDI_CLASS_NAME, m_hInstance);
         }
     }
+    /// <summary>
+    /// 创建窗口
+    /// </summary>
+    /// <param name="parent">父窗口窗口句柄</param>
+    /// <param name="hInstance">程序实例</param>
+    /// <returns></returns>
     HRESULT CreateWind(HWND parent = nullptr, HINSTANCE hInstance = HINST_THISCOMPONENT) override
     {
         if (m_hWnd) {
@@ -732,19 +824,38 @@ public:
     {
         m_WindSizeCallback = sizeCallback;
     }
+    /// <summary>
+    /// 获取按键回调
+    /// </summary>
+    /// <returns></returns>
     const WindCallback::CharInputCallback_GDI& GetKeyCallback() const
     {
         return m_CharCallback;
     }
+    /// <summary>
+    /// 获取绘图回调
+    /// </summary>
+    /// <returns></returns>
     const WindCallback::PaintCallback_GDI& GetPaintCallback() const
     {
         return m_PaintCallback;
     }
+    /// <summary>
+    /// 获取当前窗口大小调整回调
+    /// </summary>
+    /// <returns></returns>
     const WindCallback::SizeCallback_GDI& GetWindSizeCallback() const
     {
         return m_WindSizeCallback;
     }
-
+    /// <summary>
+    /// 绘制矩形
+    /// </summary>
+    /// <param name="left">左边框坐标</param>
+    /// <param name="top">顶部边框坐标</param>
+    /// <param name="right">右边框坐标</param>
+    /// <param name="bottom">底部边框坐标</param>
+    /// <returns>是否成功绘制</returns>
     bool DrawRectangle(
         int left,
         int top,
@@ -755,6 +866,15 @@ public:
             return Rectangle(m_hdc, left, top, right, bottom);
         return false;
     }
+    /// <summary>
+    /// 绘制填充矩形
+    /// </summary>
+    /// <param name="left">左边框坐标</param>
+    /// <param name="top">顶部边框坐标</param>
+    /// <param name="right">右边框坐标</param>
+    /// <param name="bottom">底部边框坐标</param>
+    /// <param name="fillColor">填充颜色</param>
+    /// <returns>是否成功绘制</returns>
     bool DrawFillRectangle(
         int left,
         int top,
@@ -770,6 +890,11 @@ public:
         }
         return false;
     }
+    /// <summary>
+    /// 清空背景为指定颜色
+    /// </summary>
+    /// <param name="color">默认白色</param>
+    /// <returns>是否成功绘制</returns>
     bool ClearWindBackground(COLORREF color = RGB(255, 255, 255)) override
     {
         if (!m_hdc)
@@ -781,6 +906,12 @@ public:
         DeleteObject(hBrush);
         return true;
     }
+    /// <summary>
+    /// 设置是否自动清空背景颜色
+    /// </summary>
+    /// <param name="color">目标颜色</param>
+    /// <param name="run">是否开启</param>
+    /// <returns>是否成功调用</returns>
     bool AutoClearWindBackground(COLORREF color = RGB(255, 255, 255), bool run = true) override
     {
         if (!run) {
@@ -798,6 +929,14 @@ public:
             return false;
         return true;
     }
+    /// <summary>
+    /// 绘制直线
+    /// </summary>
+    /// <param name="startX">起始点横坐标</param>
+    /// <param name="startY">起始点纵坐标</param>
+    /// <param name="endX">终点横坐标</param>
+    /// <param name="endY">终点横坐标</param>
+    /// <returns></returns>
     bool DrawLine(int startX, int startY, int endX, int endY) override
     {
         if (!m_hdc)
@@ -806,6 +945,13 @@ public:
         LineTo(m_hdc, endX, endY);
         return true;
     }
+    /// <summary>
+    /// 绘制连续直线
+    /// 起始点为上一次绘制的终点，默认为0，0
+    /// </summary>
+    /// <param name="toX">目标点横坐标</param>
+    /// <param name="toY">目标点纵坐标</param>
+    /// <returns></returns>
     bool DrawLineTo(int toX, int toY) override
     {
         if (!m_hdc)
@@ -813,6 +959,16 @@ public:
         LineTo(m_hdc, toX, toY);
         return true;
     }
+    /// <summary>
+    /// 绘制文本
+    /// 接受窄字符字符串
+    /// </summary>
+    /// <param name="ShowText">要绘制的文本</param>
+    /// <param name="x">绘制位置</param>
+    /// <param name="y">绘制位置</param>
+    /// <param name="w">绘制宽度</param>
+    /// <param name="h">绘制高度</param>
+    /// <returns></returns>
     bool DrawTextAscii(const std::string& ShowText, int x, int y, int w, int h) override
     {
         if (!m_hdc)
@@ -820,6 +976,16 @@ public:
         RECT rect = { x, y, x + w, y + h };
         DrawTextA(m_hdc, ShowText.c_str(), (int)ShowText.size(), &rect, DT_CENTER);
     }
+    /// <summary>
+    /// 绘制文本
+    /// 接受宽字符字符串
+    /// </summary>
+    /// <param name="ShowText">要绘制的文本</param>
+    /// <param name="x">绘制位置</param>
+    /// <param name="y">绘制位置</param>
+    /// <param name="w">绘制宽度</param>
+    /// <param name="h">绘制高度</param>
+    /// <returns></returns>
     bool DrawTextWide(const std::wstring& ShowText, int x, int y, int w, int h) override
     {
         if (!m_hdc)
@@ -827,7 +993,12 @@ public:
         RECT rect = { x, y, x + w, y + h };
         DrawTextW(m_hdc, ShowText.c_str(), (int)ShowText.size(), &rect, DT_CENTER);
     }
-    // 绘制多边形
+    /// <summary>
+    /// 绘制多边形
+    /// </summary>
+    /// <param name="pointArr">连续的点数组</param>
+    /// <param name="pointCount">数组长度</param>
+    /// <returns></returns>
     bool DrawGeometry(POINT* pointArr, int pointCount) override
     {
         if (!m_hdc)
@@ -835,12 +1006,22 @@ public:
         Polygon(m_hdc, pointArr, pointCount);
         return true;
     }
-    // 绘制多边形
+    /// <summary>
+    /// 绘制多边形
+    /// </summary>
+    /// <param name="points">连续的点数组</param>
+    /// <returns></returns>
     bool DrawGeometry(std::vector<POINT>& points) override
     {
         return DrawGeometry(points.data(), (int)points.size());
     }
-    // 绘制填充多边形
+    /// <summary>
+    /// 绘制填充多边形
+    /// </summary>
+    /// <param name="pointArr">连续的点数组</param>
+    /// <param name="pointCount">数组长度</param>
+    /// <param name="fillColor">填充的颜色</param>
+    /// <returns></returns>
     bool DrawFillGeometry(POINT* pointArr, int pointCount, COLORREF fillColor) override
     {
         if (!m_hdc)
@@ -853,11 +1034,24 @@ public:
         SelectObject(m_hdc, oldColor);
         return true;
     }
-    // 绘制填充多边形
+    /// <summary>
+    /// 绘制填充多边形
+    /// </summary>
+    /// <param name="points">连续的点数组</param>
+    /// <param name="fillColor">填充的颜色</param>
+    /// <returns></returns>
     bool DrawFillGeometry(std::vector<POINT>& points, COLORREF fillColor) override
     {
         return DrawFillGeometry(points.data(), (int)points.size(), fillColor);
     }
+    /// <summary>
+    /// 设置画笔
+    /// GDI窗口的画笔宽度大于1时，样式无效
+    /// </summary>
+    /// <param name="color">画笔颜色</param>
+    /// <param name="penStyle">画笔样式</param>
+    /// <param name="LineWidth">线条宽度</param>
+    /// <returns></returns>
     bool SetPen(COLORREF color, PenStyle penStyle = PenStyle::SolidLine, int LineWidth = 1) override
     {
         auto lastPen = m_CurrentPen;
@@ -1033,14 +1227,28 @@ public:
             UnregisterClassW(WindClassName::MAIN_WINDOW_D2D_CLASS_NAME, m_hInstance);
         }
     }
+    /// <summary>
+    /// 获取d2d绘制目标
+    /// </summary>
+    /// <returns></returns>
     ID2D1HwndRenderTarget* GetD2DTargetP() const
     {
         return m_d2dRenderTarget;
     }
+    /// <summary>
+    /// 获取d2d工厂
+    /// </summary>
+    /// <returns></returns>
     ID2D1Factory* GetD2DFactoryP() const
     {
         return m_d2dFactory;
     }
+    /// <summary>
+    /// 创建窗口
+    /// </summary>
+    /// <param name="parent">父窗口窗口句柄</param>
+    /// <param name="hInstance">程序实例</param>
+    /// <returns></returns>
     HRESULT CreateWind(HWND parent = nullptr, HINSTANCE hInstance = HINST_THISCOMPONENT) override
     {
         if (m_hWnd) {
@@ -1162,7 +1370,11 @@ public:
         GetSystemTimePreciseAsFileTime(&m_LastPaintTime);
         return S_OK;
     }
-
+    /// <summary>
+    /// 将D2D颜色转换为COLORREF类型
+    /// </summary>
+    /// <param name="colorF"></param>
+    /// <returns></returns>
     static COLORREF D2DColorFToGdiColor(const D2D1::ColorF& colorF)
     {
         BYTE redByte = static_cast<BYTE>(colorF.r * 255);
@@ -1170,6 +1382,11 @@ public:
         BYTE blueByte = static_cast<BYTE>(colorF.b * 255);
         return RGB(redByte, greenByte, blueByte);
     }
+    /// <summary>
+    /// 将COLORREF颜色转换为D2D1::ColorF类型
+    /// </summary>
+    /// <param name="colorRef"></param>
+    /// <returns></returns>
     static D2D1::ColorF GdiColorToD2DColor(COLORREF colorRef)
     {
         float red = GetRValue(colorRef) / 255.0f;
@@ -1202,18 +1419,38 @@ public:
     {
         m_WindSizeCallback = sizeCallback;
     }
+    /// <summary>
+    /// 获取当前字符回调
+    /// </summary>
+    /// <returns></returns>
     const WindCallback::CharInputCallback_D2D& GetKeyCallback() const
     {
         return m_CharCallback;
     }
+    /// <summary>
+    /// 获取当前绘图回调
+    /// </summary>
+    /// <returns></returns>
     const WindCallback::PaintCallback_D2D& GetPaintCallback() const
     {
         return m_PaintCallback;
     }
+    /// <summary>
+    /// 获取当前窗口大小调整回调
+    /// </summary>
+    /// <returns></returns>
     const WindCallback::SizeCallback_D2D& GetWindSizeCallback() const
     {
         return m_WindSizeCallback;
     }
+    /// <summary>
+    /// 绘制矩形
+    /// </summary>
+    /// <param name="left">左边框坐标</param>
+    /// <param name="top">顶部边框坐标</param>
+    /// <param name="right">右边框坐标</param>
+    /// <param name="bottom">底部边框坐标</param>
+    /// <returns>是否成功绘制</returns>
     bool DrawRectangle(
         int left,
         int top,
@@ -1227,6 +1464,15 @@ public:
         }
         return false;
     }
+    /// <summary>
+    /// 绘制填充矩形
+    /// </summary>
+    /// <param name="left">左边框坐标</param>
+    /// <param name="top">顶部边框坐标</param>
+    /// <param name="right">右边框坐标</param>
+    /// <param name="bottom">底部边框坐标</param>
+    /// <param name="fillColor">填充颜色</param>
+    /// <returns>是否成功绘制</returns>
     bool DrawFillRectangle(
         int left,
         int top,
@@ -1240,6 +1486,11 @@ public:
         }
         return false;
     }
+    /// <summary>
+    /// 清空背景为指定颜色
+    /// </summary>
+    /// <param name="color">默认白色</param>
+    /// <returns>是否成功绘制</returns>
     bool ClearWindBackground(COLORREF color = RGB(255, 255, 255)) override
     {
         if (!m_d2dRenderTarget)
@@ -1247,6 +1498,12 @@ public:
         m_d2dRenderTarget->Clear(GdiColorToD2DColor(color));
         return true;
     }
+    /// <summary>
+    /// 设置是否自动清空背景颜色
+    /// </summary>
+    /// <param name="color">目标颜色</param>
+    /// <param name="run">是否开启</param>
+    /// <returns>是否成功调用</returns>
     bool AutoClearWindBackground(COLORREF color = RGB(255, 255, 255), bool run = true) override
     {
         SafeReleaseP(&m_BackgroundColor);
@@ -1259,6 +1516,14 @@ public:
             return true;
         return false;
     }
+    /// <summary>
+    /// 绘制直线
+    /// </summary>
+    /// <param name="startX">起始点横坐标</param>
+    /// <param name="startY">起始点纵坐标</param>
+    /// <param name="endX">终点横坐标</param>
+    /// <param name="endY">终点横坐标</param>
+    /// <returns></returns>
     bool DrawLine(int startX, int startY, int endX, int endY) override
     {
         if (!m_d2dRenderTarget)
@@ -1267,6 +1532,13 @@ public:
         m_d2dRenderTarget->DrawLine(D2D1::Point2F((float)startX, (float)startY), m_LastPoint, m_PenBrush, (float)m_PenWidth, m_PenStyle);
         return true;
     }
+    /// <summary>
+    /// 绘制连续直线
+    /// 起始点为上一次绘制的终点，默认为0，0
+    /// </summary>
+    /// <param name="toX">目标点横坐标</param>
+    /// <param name="toY">目标点纵坐标</param>
+    /// <returns></returns>
     bool DrawLineTo(int toX, int toY) override
     {
         if (!m_d2dRenderTarget)
@@ -1274,10 +1546,32 @@ public:
         m_d2dRenderTarget->DrawLine(m_LastPoint, D2D1::Point2F((float)toX, (float)toY), m_PenBrush, (float)m_PenWidth, m_PenStyle);
         return true;
     }
+    /// <summary>
+    /// 绘制文本
+    /// 接受窄字符字符串
+    /// d2d窗口是无效的
+    /// </summary>
+    /// <param name="ShowText">要绘制的文本</param>
+    /// <param name="x">绘制位置</param>
+    /// <param name="y">绘制位置</param>
+    /// <param name="w">绘制宽度</param>
+    /// <param name="h">绘制高度</param>
+    /// <returns></returns>
+    [[deprecated("这个函数在D2D窗口是无效的,请使用DrawTextWide")]]
     bool DrawTextAscii(const std::string& ShowText, int x, int y, int w, int h) override
     {
         return false;
     }
+    /// <summary>
+    /// 绘制文本
+    /// 接受宽字符字符串
+    /// </summary>
+    /// <param name="ShowText">要绘制的文本</param>
+    /// <param name="x">绘制位置</param>
+    /// <param name="y">绘制位置</param>
+    /// <param name="w">绘制宽度</param>
+    /// <param name="h">绘制高度</param>
+    /// <returns></returns>
     bool DrawTextWide(const std::wstring& ShowText, int x, int y, int w, int h) override
     {
         if (!m_d2dRenderTarget)
@@ -1286,6 +1580,14 @@ public:
         m_d2dRenderTarget->DrawText(ShowText.c_str(), (int)ShowText.size(), m_TextFormat, rect, m_PenBrush);
         return true;
     }
+    /// <summary>
+    /// 绘制多边形
+    /// </summary>
+    /// <param name="pointArr">对应的点数组</param>
+    /// <param name="pointCount">数组长度</param>
+    /// <param name="Fill">是否填充</param>
+    /// <param name="FillColor">填充颜色</param>
+    /// <returns></returns>
     bool DrawGeometry(D2D1_POINT_2F* pointArr, int pointCount, bool Fill = false, const D2D1::ColorF& FillColor = D2D1::ColorF::White)
     {
         if (!m_d2dRenderTarget || !m_PenBrush)
@@ -1320,7 +1622,12 @@ public:
         SafeRelease(&pathGeometry);
         return true;
     }
-    // 绘制多边形
+    /// <summary>
+    /// 绘制多边形
+    /// </summary>
+    /// <param name="pointArr">连续的点数组</param>
+    /// <param name="pointCount">数组长度</param>
+    /// <returns></returns>
     bool DrawGeometry(POINT* pointArr, int pointCount) override
     {
         if (!m_d2dRenderTarget)
@@ -1336,16 +1643,30 @@ public:
         delete[] arr;
         return r;
     }
-    // 绘制多边形
+    /// <summary>
+    /// 绘制多边形
+    /// </summary>
+    /// <param name="points">顶点数组</param>
+    /// <returns></returns>
     bool DrawGeometry(std::vector<POINT>& points) override
     {
         return DrawGeometry(points.data(), (int)points.size());
     }
+    /// <summary>
+    /// 获取上一帧绘制的间隔时间
+    /// </summary>
+    /// <returns></returns>
     float GetPaintIntervalTime() const
     {
         return m_IntervalTime;
     }
-
+    /// <summary>
+    /// 设置画笔
+    /// </summary>
+    /// <param name="color">画笔颜色</param>
+    /// <param name="penStyle">画笔样式</param>
+    /// <param name="LineWidth">线条宽度</param>
+    /// <returns></returns>
     bool SetPen(COLORREF color, PenStyle penStyle = PenStyle::SolidLine, int LineWidth = 1) override
     {
         D2D1_STROKE_STYLE_PROPERTIES d2dPenStyle = D2D1::StrokeStyleProperties(
@@ -1396,6 +1717,12 @@ public:
             return false;
         return true;
     }
+    /// <summary>
+    /// 设置画笔样式
+    /// </summary>
+    /// <param name="penStyle">画笔样式</param>
+    /// <param name="dashes">样式参数</param>
+    /// <returns></returns>
     bool SetPenStyle(const D2D1_STROKE_STYLE_PROPERTIES& penStyle, std::vector<float>& dashes)
     {
         SafeRelease(&m_PenStyle);
@@ -1407,6 +1734,11 @@ public:
             return false;
         return true;
     }
+    /// <summary>
+    /// 设置画笔颜色
+    /// </summary>
+    /// <param name="color">目标颜色</param>
+    /// <returns></returns>
     bool SetPenColor(D2D1::ColorF color)
     {
         SafeRelease(&m_PenBrush);
@@ -1415,12 +1747,23 @@ public:
         }
         return true;
     }
+    /// <summary>
+    /// 设置画笔颜色
+    /// </summary>
+    /// <param name="color">目标颜色</param>
+    /// <returns></returns>
     bool SetPenColor(COLORREF color)
     {
         return SetPenColor(GdiColorToD2DColor(color));
     }
 
-    // 绘制填充多边形
+    /// <summary>
+    /// 绘制填充多边形
+    /// </summary>
+    /// <param name="pointArr">顶点数组</param>
+    /// <param name="pointCount">数组长度</param>
+    /// <param name="fillColor">填充颜色</param>
+    /// <returns></returns>
     bool DrawFillGeometry(POINT* pointArr, int pointCount, COLORREF fillColor) override
     {
         if (!m_d2dRenderTarget)
@@ -1436,7 +1779,12 @@ public:
         SafeReleaseP(&arr);
         return result;
     }
-    // 绘制填充多边形
+    /// <summary>
+    /// 绘制填充多边形
+    /// </summary>
+    /// <param name="points">顶点数组</param>
+    /// <param name="fillColor">填充颜色</param>
+    /// <returns></returns>
     bool DrawFillGeometry(std::vector<POINT>& points, COLORREF fillColor) override
     {
         return DrawFillGeometry(points.data(), (int)points.size(), fillColor);
@@ -1500,7 +1848,11 @@ public:
         CloseHandle(hFile);
         return false;
     }
-
+    /// <summary>
+    /// 播放音频
+    /// </summary>
+    /// <param name="mode">播放模式，默认为异步播放</param>
+    /// <returns></returns>
     bool Play(PlayMode mode = PM_ASYNC)
     {
         if (m_Data.empty()) {
@@ -1509,10 +1861,19 @@ public:
         } else
             return PlaySound((TCHAR*)m_Data.data(), nullptr, SND_MEMORY | SND_APPLICATION | (int)mode);
     }
+    /// <summary>
+    /// 播放指定wav音频文件
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="mode">播放模式，默认为异步播放</param>
+    /// <returns></returns>
     bool Play(CQSTR filePath, PlayMode mode = PM_ASYNC)
     {
         return PlaySound(filePath.c_str(), nullptr, SND_APPLICATION | (int)mode);
     }
+    /// <summary>
+    /// 停止播放
+    /// </summary>
     void Stop()
     {
 

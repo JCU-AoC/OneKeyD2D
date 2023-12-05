@@ -869,7 +869,22 @@ namespace WindControl {
                 if (!m_MultiLine) {
                     Switch(m_CurrentWindow);
                     break;
-                } // 这里还真的需要穿透
+                }
+                if (str.size() >= m_MaxStrSize)
+                    break;
+                if (m_OnlyNumber) {
+                    if (key < '0' || key > '9') {
+                        if (key != '-' && key != '.')
+                            break;
+                    }
+                }
+                str.insert(m_CursorPosition, 1, key);
+                SetCursorPosition(m_CursorPosition + 1);
+                SetCursor();
+                if (m_EditCallback) {
+                    m_EditCallback(GetBindedWindow(), m_Text.GetShowText(), EditMessage::StringChange);
+                }
+                break;
             }
             default:
                 if (str.size() >= m_MaxStrSize)
@@ -1374,6 +1389,8 @@ namespace WindControl {
             m_Opacity = Opacity;
         }
 
+        virtual int GetAnimationSize()const = 0;
+
         void SetSwitchTime(float second)
         {
             m_SwitchTime = second * 1000;
@@ -1458,12 +1475,17 @@ namespace WindControl {
             if (!ContinueSwitch)
                 m_SwitchTime = -1;
         }
+
+        int GetAnimationSize()const override
+        {
+            return m_PictureCount;
+        }
+
         /// <summary>
         /// 设置一帧的切换时间
         /// 小于0则固定
         /// </summary>
         /// <param name="time">单位秒</param>
-
         void SetPictureCount(int Count)
         {
             m_PictureCount = Count;
@@ -1531,6 +1553,10 @@ namespace WindControl {
 
     public:
         d2dPicturesAnimation() { }
+        int GetAnimationSize()const override
+        {
+            return (int)m_DataPicture.size();
+        }
         void SetData(std::vector<WindElements::d2dPicture*>& data)
         {
             m_DataPicture = data;

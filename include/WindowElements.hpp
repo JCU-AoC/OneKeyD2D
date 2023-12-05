@@ -10,7 +10,10 @@ namespace WindElements {
     class d2dElements {
     protected:
         D2D1_RECT_F m_ShowRectangle;
-
+        float m_Angle = 0;
+        D2D1_POINT_2F m_RotateCenter = D2D1::Point2F();
+        D2D1_MATRIX_3X2_F m_Rotation = D2D1::Matrix3x2F::Rotation(0);
+        D2D1_MATRIX_3X2_F originalTransform = D2D1::Matrix3x2F::Rotation(0);
     public:
         d2dElements()
             : m_ShowRectangle({ 0, 0, 0, 0 })
@@ -18,10 +21,18 @@ namespace WindElements {
         }
         virtual bool Draw(ID2D1RenderTarget* d2dRenderTarget) = 0;
         virtual bool Draw(MainWind_D2D* d2dWind) = 0;
+        /// <summary>
+        /// 获取当前显示的位置所在矩形
+        /// </summary>
+        /// <returns></returns>
         D2D1_RECT_F GetShowRect() const
         {
             return m_ShowRectangle;
         }
+        /// <summary>
+        /// 获取显示宽度
+        /// </summary>
+        /// <returns></returns>
         D2D1_SIZE_F GetShowSize() const
         {
             return { m_ShowRectangle.right - m_ShowRectangle.left, m_ShowRectangle.bottom - m_ShowRectangle.top };
@@ -43,6 +54,7 @@ namespace WindElements {
             m_ShowRectangle.top += hDifference;
             m_ShowRectangle.right += wDifference;
             m_ShowRectangle.bottom += hDifference;
+            SetRotate(m_Angle, m_RotateCenter);
         }
         virtual D2D1_POINT_2F GetPosition() const
         {
@@ -58,6 +70,21 @@ namespace WindElements {
             m_ShowRectangle.bottom = height + m_ShowRectangle.top;
             m_ShowRectangle.right = width + m_ShowRectangle.left;
         }
+
+        /// <summary>
+        /// 让图像绕指定点旋转
+        /// </summary>
+        /// <param name="angle">旋转角度</param>
+        /// <param name="center">取值为0-1，表示显示矩阵中旋转的位置</param>
+        void SetRotate(float angle, const D2D1_POINT_2F& center = D2D1::Point2F())
+        {
+            m_Angle = angle;
+            m_RotateCenter = center;
+            D2D1_POINT_2F CenterR = center;
+            CenterR.x = (m_ShowRectangle.right - m_ShowRectangle.left) * center.x + m_ShowRectangle.left;
+            CenterR.y = (m_ShowRectangle.bottom - m_ShowRectangle.top) * center.y + m_ShowRectangle.top;
+            m_Rotation = D2D1::Matrix3x2F::Rotation(angle, CenterR);
+        }
     };
     class d2dPicture : public d2dElements {
 
@@ -67,22 +94,35 @@ namespace WindElements {
             , m_Crop(D2D1::RectF(0, 0, 1, 1))
             , m_Transparency(1.f)
             , m_ImageWide(D2D1::SizeF())
-            , originalTransform(D2D1::Matrix3x2F::Rotation(0))
         {
-            m_Rotation = D2D1::Matrix3x2F::Rotation(0);
         }
         ~d2dPicture()
         {
             SafeRelease(&m_Bitmap);
         }
+        /// <summary>
+        /// 是否图片资源
+        /// </summary>
         void Release()
         {
             SafeRelease(&m_Bitmap);
         }
+        /// <summary>
+        /// 从文件中加载图片
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="d2dWind">d2d窗口</param>
+        /// <returns></returns>
         bool LoadPictureFromFile(const std::wstring& filePath, MainWind_D2D* d2dWind)
         {
             return LoadPictureFromFile(filePath, d2dWind->GetD2DTargetP());
         }
+        /// <summary>
+        /// 从文件中加载图片
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="d2dWind">d2d窗口</param>
+        /// <returns></returns>
         bool LoadPictureFromFile(const std::wstring& filePath, ID2D1RenderTarget* d2dRenderTarget)
         {
             if (filePath.empty() || !d2dRenderTarget) {
@@ -154,7 +194,6 @@ namespace WindElements {
             m_Crop.bottom = m_ImageWide.height;
             return true;
         }
-
         /// <summary>
         /// 加载像素格式的数据
         /// </summary>
@@ -231,6 +270,10 @@ namespace WindElements {
             SafeRelease(&pWICFactory);
             return hr;
         }
+        /// <summary>
+        /// 设置不透明度
+        /// </summary>
+        /// <param name="t"></param>
         void SetOpacity(float t)
         {
             m_Transparency = t;
@@ -245,34 +288,20 @@ namespace WindElements {
             nowWide.height *= heightScale;
             SetShowWide(nowWide.width, nowWide.height);
         }
-        void SetPosition(float x, float y) override
-        {
-            float wDifference = x - m_ShowRectangle.left;
-            float hDifference = y - m_ShowRectangle.top;
-            m_ShowRectangle.left += wDifference;
-            m_ShowRectangle.top += hDifference;
-            m_ShowRectangle.right += wDifference;
-            m_ShowRectangle.bottom += hDifference;
-            SetRotate(m_Angle, m_RotateCenter);
-        }
+
         /// <summary>
-        /// 让图像绕指定点旋转
+        /// 设置裁切
         /// </summary>
-        /// <param name="angle"></param>
-        /// <param name="center">取值为0-1，表示显示矩阵中旋转的位置</param>
-        void SetRotate(float angle, const D2D1_POINT_2F& center = D2D1::Point2F())
-        {
-            m_Angle = angle;
-            m_RotateCenter = center;
-            D2D1_POINT_2F CenterR = center;
-            CenterR.x = (m_ShowRectangle.right - m_ShowRectangle.left) * center.x + m_ShowRectangle.left;
-            CenterR.y = (m_ShowRectangle.bottom - m_ShowRectangle.top) * center.y + m_ShowRectangle.top;
-            m_Rotation = D2D1::Matrix3x2F::Rotation(angle, CenterR);
-        }
+        /// <param name="crop">单位是像素</param>
         void SetCrop(const D2D1_RECT_F& crop)
         {
             m_Crop = crop;
         }
+        /// <summary>
+        /// 绘制图片
+        /// </summary>
+        /// <param name="d2dRenderTarget">目标d2d窗口</param>
+        /// <returns></returns>
         bool Draw(ID2D1RenderTarget* d2dRenderTarget) override
         {
             if (!d2dRenderTarget || !m_Bitmap)
@@ -284,6 +313,12 @@ namespace WindElements {
 
             return true;
         }
+        /// <summary>
+        /// 在目标矩形绘制图片
+        /// </summary>
+        /// <param name="d2dRenderTarget">目标d2d窗口</param>
+        /// <param name="rect">目标矩形</param>
+        /// <returns></returns>
         bool DrawInRect(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
         {
             if (!d2dRenderTarget || !m_Bitmap)
@@ -295,6 +330,12 @@ namespace WindElements {
 
             return true;
         }
+        /// <summary>
+        /// 绘制目标裁切的图片
+        /// </summary>
+        /// <param name="d2dRenderTarget">目标d2d窗口</param>
+        /// <param name="crop">裁切矩形</param>
+        /// <returns></returns>
         bool Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& crop)
         {
             if (!d2dRenderTarget || !m_Bitmap)
@@ -306,15 +347,27 @@ namespace WindElements {
 
             return true;
         }
+        /// <summary>
+        /// 在目标窗口绘制图片
+        /// </summary>
+        /// <param name="d2dWind"></param>
+        /// <returns></returns>
         bool Draw(MainWind_D2D* d2dWind) override
         {
             return Draw(d2dWind->GetD2DTargetP());
         }
-
+        /// <summary>
+        /// 获取当前裁切矩形
+        /// </summary>
+        /// <returns></returns>
         D2D1_RECT_F GetCropRect() const
         {
             return m_Crop;
         }
+        /// <summary>
+        /// 获取图片文件的大小
+        /// </summary>
+        /// <returns></returns>
         D2D1_SIZE_F GetImageSize() const
         {
             return m_ImageWide;
@@ -326,11 +379,6 @@ namespace WindElements {
         D2D1_SIZE_F m_ImageWide;
 
         ID2D1Bitmap* m_Bitmap;
-        D2D1::Matrix3x2F m_Rotation;
-        D2D1_MATRIX_3X2_F originalTransform;
-
-        float m_Angle = 0;
-        D2D1_POINT_2F m_RotateCenter = D2D1::Point2F();
     };
     class d2dText : public d2dElements {
     private:
@@ -339,12 +387,9 @@ namespace WindElements {
         IDWriteTextFormat* m_TextFormat;
         ID2D1SolidColorBrush* m_Color;
 
-        D2D1::Matrix3x2F m_Rotation;
-
     public:
         d2dText(const std::wstring& showString = L"", float x = 0, float y = 0, float w = 128, float h = 32)
             : m_ShowText(showString)
-            , m_Rotation(D2D1::Matrix3x2F::Rotation(0))
             , m_Color(nullptr)
         {
             m_TextFormat = nullptr;
@@ -359,10 +404,22 @@ namespace WindElements {
         {
             SafeRelease(&m_TextFormat);
         }
+        /// <summary>
+        /// 设置文本颜色
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="window"></param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, MainWind_D2D* window)
         {
             return SetColor(color, window->GetD2DTargetP());
         }
+        /// <summary>
+        /// 设置文本颜色
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="renderTarget"></param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
         {
             if (!renderTarget)
@@ -372,41 +429,58 @@ namespace WindElements {
                 return true;
             return false;
         }
+        /// <summary>
+        /// 获取当前文本颜色
+        /// </summary>
+        /// <returns></returns>
         D2D1_COLOR_F GetColor() const
         {
             if (m_Color)
                 return m_Color->GetColor();
             return D2D1::ColorF(0);
         }
+        /// <summary>
+        /// 设置不透明度
+        /// </summary>
+        /// <param name="t"></param>
         void SetOpacity(float t)
         {
             if (m_Color)
                 m_Color->SetOpacity(t);
         }
+        /// <summary>
+        /// 获取当前不透明度
+        /// </summary>
+        /// <returns></returns>
         float GetOpacity() const
         {
             if (m_Color)
                 return m_Color->GetOpacity();
             return 0.f;
         }
+        /// <summary>
+        /// 设置显示的文本
+        /// </summary>
+        /// <param name="showString"></param>
         void SetShowText(const std::wstring& showString)
         {
             m_ShowText = showString;
         }
+        /// <summary>
+        /// 获取当前显示的文本
+        /// </summary>
+        /// <returns></returns>
         const std::wstring& GetShowText() const
         {
             return m_ShowText;
         }
+        /// <summary>
+        /// 获取当前显示文本的引用
+        /// </summary>
+        /// <returns></returns>
         std::wstring& GetShowText()
         {
             return m_ShowText;
-        }
-        void SetRotate(float angle, const D2D1_POINT_2F& center = D2D1::Point2F())
-        {
-            D2D1_POINT_2F CenterR = center;
-            CenterR.x = (m_ShowRectangle.right - m_ShowRectangle.left) * center.x + m_ShowRectangle.left;
-            CenterR.y = (m_ShowRectangle.bottom - m_ShowRectangle.top) * center.y + m_ShowRectangle.top;
-            m_Rotation = D2D1::Matrix3x2F::Rotation(angle, CenterR);
         }
         /// <summary>
         /// 设置文本水平对齐方式
@@ -426,13 +500,21 @@ namespace WindElements {
             if (m_TextFormat)
                 m_TextFormat->SetParagraphAlignment(dta);
         }
+        /// <summary>
+        /// 获取字体大小
+        /// </summary>
+        /// <returns></returns>
         float GetTextFontSize() const
         {
             return m_TextFormat->GetFontSize();
         }
-        void SetTextFontSize(float fsize)
+        /// <summary>
+        /// 设置字体大小
+        /// </summary>
+        /// <param name="fontSize"></param>
+        void SetTextFontSize(float fontSize)
         {
-            if (!m_TextFormat || fsize < 1)
+            if (!m_TextFormat || fontSize < 1)
                 return;
             WCHAR name[64] = {};
             m_TextFormat->GetFontFamilyName(name, 64);
@@ -442,8 +524,19 @@ namespace WindElements {
                 m_TextFormat->GetFontWeight(),
                 m_TextFormat->GetFontStyle(),
                 m_TextFormat->GetFontStretch(),
-                fsize, L"");
+                fontSize, L"");
         }
+        /// <summary>
+        /// 设置字体样式
+        /// </summary>
+        /// <param name="fontFamilyName">包含字体系列名称的字符数组</param>
+        /// <param name="fontCollection">指向字体集合对象的指针。如果为 NULL，则指示系统字体集合。</param>
+        /// <param name="fontWeight">一个值，该值指示此方法创建的文本对象的字体粗细。</param>
+        /// <param name="fontStyle">一个值，该值指示此方法创建的文本对象的字体样式。</param>
+        /// <param name="fontStretch">一个值，该值指示此方法创建的文本对象的字体拉伸。</param>
+        /// <param name="fontSize">字体的逻辑大小，以 DIP（“与设备无关的像素”）为单位。DIP 等于 1/96 英寸。</param>
+        /// <param name="localeName">包含区域设置名称的字符数组。</param>
+        /// <returns></returns>
         HRESULT SetTextFormat(
             WCHAR const* fontFamilyName,
             IDWriteFontCollection* fontCollection,
@@ -563,10 +656,8 @@ namespace WindElements {
         {
             if (!d2dRenderTarget || !m_Color)
                 return false;
-            D2D1_MATRIX_3X2_F originalTransform;
             d2dRenderTarget->GetTransform(&originalTransform);
             d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
-
             d2dRenderTarget->DrawText(m_ShowText.c_str(), (UINT32)m_ShowText.size(), m_TextFormat, &rect, m_Color);
             d2dRenderTarget->SetTransform(originalTransform);
             return true;
@@ -579,25 +670,19 @@ namespace WindElements {
         {
             if (!d2dRenderTarget || !m_Color)
                 return false;
-            D2D1_MATRIX_3X2_F originalTransform;
             d2dRenderTarget->GetTransform(&originalTransform);
             d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
-
             d2dRenderTarget->DrawText(m_ShowText.c_str(), (UINT32)m_ShowText.size(), m_TextFormat, &m_ShowRectangle, m_Color);
             d2dRenderTarget->SetTransform(originalTransform);
             return true;
         }
     };
     class d2dRectangle : public d2dElements {
-        D2D1::Matrix3x2F m_Rotation;
-        D2D1_MATRIX_3X2_F originalTransform;
 
         ID2D1SolidColorBrush* m_Color;
         D2D1_ROUNDED_RECT m_Rect;
 
         float m_PenWide;
-        float m_Angle = 0;
-        D2D1_POINT_2F m_RotateCenter = D2D1::Point2F();
         bool m_Fill;
         bool m_Round;
 
@@ -608,27 +693,42 @@ namespace WindElements {
             , m_Round(false)
             , m_Rect(D2D1::RoundedRect(D2D1::RectF(), 0, 0))
             , m_PenWide(1)
-            , m_Rotation(D2D1::Matrix3x2F::Rotation(0))
-            , originalTransform(D2D1::Matrix3x2F::Rotation(0))
         {
         }
         ~d2dRectangle()
         {
             SafeRelease(&m_Color);
         }
+        /// <summary>
+        /// 设置是否填充
+        /// </summary>
+        /// <param name="fill"></param>
         void FillRect(bool fill = true)
         {
             m_Fill = fill;
         }
+        /// <summary>
+        /// 设置是否存在圆角
+        /// </summary>
+        /// <param name="round"></param>
         void Round(bool round = true)
         {
             m_Round = round;
         }
+        /// <summary>
+        /// 设置圆角半径
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
         void SetRound(float x, float y)
         {
             m_Rect.radiusX = x;
             m_Rect.radiusY = y;
         }
+        /// <summary>
+        /// 设置显示的矩形
+        /// </summary>
+        /// <param name="rect"></param>
         void SetShowRect(const D2D1_RECT_F& rect) override
         {
             m_ShowRectangle = rect;
@@ -661,28 +761,38 @@ namespace WindElements {
             m_ShowRectangle.right = width + m_ShowRectangle.left;
             m_Rect.rect = m_ShowRectangle;
         }
+        /// <summary>
+        /// 设置画笔宽度
+        /// </summary>
+        /// <param name="penWide"></param>
         void SetUnfillRectWide(float penWide)
         {
             m_PenWide = penWide;
         }
+        /// <summary>
+        /// 获取显示位置所在的矩形
+        /// </summary>
+        /// <returns></returns>
         const D2D1_RECT_F& GetShowRect() const
         {
             return m_ShowRectangle;
         }
-        void SetRotate(float angle, const D2D1_POINT_2F& center = D2D1::Point2F())
-        {
-            m_RotateCenter = center;
-            D2D1_POINT_2F CenterR = center;
-            CenterR.x = (m_ShowRectangle.right - m_ShowRectangle.left) * center.x + m_ShowRectangle.left;
-            CenterR.y = (m_ShowRectangle.bottom - m_ShowRectangle.top) * center.y + m_ShowRectangle.top;
-
-            m_Angle = angle;
-            m_Rotation = D2D1::Matrix3x2F::Rotation(angle, CenterR);
-        }
+        /// <summary>
+        /// 设置颜色
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="window"></param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, MainWind_D2D* window)
         {
             return SetColor(color, window->GetD2DTargetP());
         }
+        /// <summary>
+        /// 设置颜色
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="renderTarget"></param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
         {
             if (!renderTarget)
@@ -692,15 +802,27 @@ namespace WindElements {
                 return true;
             return false;
         }
+        /// <summary>
+        /// 获取颜色
+        /// </summary>
+        /// <returns></returns>
         D2D1_COLOR_F GetColor() const
         {
             return m_Color->GetColor();
         }
+        /// <summary>
+        /// 设置不透明度
+        /// </summary>
+        /// <param name="t"></param>
         void SetOpacity(float t)
         {
             if (m_Color)
                 m_Color->SetOpacity(t);
         }
+        /// <summary>
+        /// 获取不透明度
+        /// </summary>
+        /// <returns></returns>
         float GetOpacity() const
         {
             if (m_Color)
@@ -778,6 +900,11 @@ namespace WindElements {
             SetColor(color, renderTarget);
             SetFoldLine(data);
         }
+        /// <summary>
+        /// 设置绘制位置
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
         void SetPosition(float x, float y) override
         {
             float wDifference = x - m_ShowRectangle.left;
@@ -786,17 +913,31 @@ namespace WindElements {
             m_ShowRectangle.top += hDifference;
             m_ShowRectangle.right += wDifference;
             m_ShowRectangle.bottom += hDifference;
-
+            SetRotate(m_Angle, m_RotateCenter);
             SetFoldLine(m_rawData);
         }
+        /// <summary>
+        /// 设置线宽
+        /// </summary>
+        /// <param name="wide"></param>
         void SetLineWide(float wide)
         {
             m_LineWide = wide;
         }
+        /// <summary>
+        /// 获取线宽
+        /// </summary>
+        /// <returns></returns>
         float GetLineWide() const
         {
             return m_LineWide;
         }
+        /// <summary>
+        /// 设置要绘制的直线
+        /// </summary>
+        /// <param name="xList">直线的x数组</param>
+        /// <param name="yList">直线的y数组</param>
+        /// <returns></returns>
         bool SetFoldLine(const std::vector<float>& xList, const std::vector<float>& yList)
         {
             if (xList.size() != yList.size()) {
@@ -810,6 +951,11 @@ namespace WindElements {
             SetFoldLine(data);
             return true;
         }
+        /// <summary>
+        /// 设置要绘制的直线坐标
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
         bool SetFoldLine(const std::vector<D2D1_POINT_2F>& data)
         {
             m_rawData = data;
@@ -822,10 +968,22 @@ namespace WindElements {
             }
             return true;
         }
+        /// <summary>
+        /// 设置颜色
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="window"></param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, MainWind_D2D* window)
         {
             return SetColor(color, window->GetD2DTargetP());
         }
+        /// <summary>
+        /// 设置颜色
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="renderTarget"></param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
         {
             if (!renderTarget)
@@ -835,6 +993,14 @@ namespace WindElements {
                 return true;
             return false;
         }
+        /// <summary>
+        /// 设置画笔
+        /// </summary>
+        /// <param name="window">d2d窗口</param>
+        /// <param name="color">颜色</param>
+        /// <param name="penStyle">画笔样式</param>
+        /// <param name="LineWidth">线宽</param>
+        /// <returns></returns>
         bool SetPen(MainWind_D2D* window, const D2D1::ColorF& color, PenStyle penStyle = PenStyle::SolidLine, int LineWidth = 1)
         {
             D2D1_STROKE_STYLE_PROPERTIES d2dPenStyle = D2D1::StrokeStyleProperties(
@@ -885,10 +1051,24 @@ namespace WindElements {
                 return false;
             return true;
         }
+        /// <summary>
+        /// 设置画笔样式
+        /// </summary>
+        /// <param name="window">d2d窗口</param>
+        /// <param name="penStyle">画笔样式</param>
+        /// <param name="dashes">样式的详细参数</param>
+        /// <returns></returns>
         bool SetPenStyle(MainWind_D2D* window, const D2D1_STROKE_STYLE_PROPERTIES& penStyle, const std::vector<float>& dashes)
         {
             return SetPenStyle(window->GetD2DFactoryP(), penStyle, dashes);
         }
+        /// <summary>
+        /// 设置画笔样式
+        /// </summary>
+        /// <param name="factory">d2d工厂</param>
+        /// <param name="penStyle">画笔样式</param>
+        /// <param name="dashes">样式的详细参数</param>
+        /// <returns></returns>
         bool SetPenStyle(ID2D1Factory* factory, const D2D1_STROKE_STYLE_PROPERTIES& penStyle, const std::vector<float>& dashes)
         {
             SafeRelease(&m_PenStyle);
@@ -904,13 +1084,15 @@ namespace WindElements {
         {
             if (!d2dRenderTarget || !m_Color || m_DrawData.size() < 2)
                 return false;
+            d2dRenderTarget->GetTransform(&originalTransform);
+            d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
             for (size_t p = 0; p < m_DrawData.size() - 1; ++p) {
                 if (m_PenStyle)
                     d2dRenderTarget->DrawLine(m_DrawData[p], m_DrawData[p + 1], m_Color, m_LineWide, m_PenStyle);
                 else
                     d2dRenderTarget->DrawLine(m_DrawData[p], m_DrawData[p + 1], m_Color, m_LineWide);
             }
-
+            d2dRenderTarget->SetTransform(originalTransform);
             return true;
         }
         bool Draw(MainWind_D2D* d2dWind) override
@@ -967,6 +1149,11 @@ namespace WindElements {
             SafeRelease(&pSink);
             SafeRelease(&m_FillColor);
         }
+        /// <summary>
+        /// 设置显示位置
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
         void SetPosition(float x, float y) override
         {
             float wDifference = x - m_ShowRectangle.left;
@@ -975,8 +1162,15 @@ namespace WindElements {
             m_ShowRectangle.top += hDifference;
             m_ShowRectangle.right += wDifference;
             m_ShowRectangle.bottom += hDifference;
+            SetRotate(m_Angle, m_RotateCenter);
             SetPath(m_window, m_Path);
         }
+        /// <summary>
+        /// 设置是否填充
+        /// </summary>
+        /// <param name="fill">是否填充</param>
+        /// <param name="window">d2d窗口</param>
+        /// <param name="color">填充颜色</param>
         void Fill(bool fill = true, MainWind_D2D* window = nullptr, const D2D1::ColorF& color = D2D1::ColorF::White)
         {
             m_Fill = fill;
@@ -985,6 +1179,10 @@ namespace WindElements {
                 window->GetD2DTargetP()->CreateSolidColorBrush(color, &m_FillColor);
             }
         }
+        /// <summary>
+        /// 获取新的路径
+        /// </summary>
+        /// <returns></returns>
         ID2D1GeometrySink* GetNewSink()
         {
             SafeRelease(&pSink);
@@ -993,10 +1191,21 @@ namespace WindElements {
             pGeometry->Open(&pSink);
             return pSink;
         }
+        /// <summary>
+        /// 获取当前路径
+        /// </summary>
+        /// <returns></returns>
         ID2D1GeometrySink* GetSink()
         {
             return pSink;
         }
+        /// <summary>
+        /// 设置路径
+        /// </summary>
+        /// <param name="window">d2d窗口</param>
+        /// <param name="points">路径数组</param>
+        /// <param name="FillMode">填充模式</param>
+        /// <returns></returns>
         bool SetPath(MainWind_D2D* window, std::vector<D2D1_POINT_2F>& points,
             D2D1_FILL_MODE FillMode = D2D1_FILL_MODE::D2D1_FILL_MODE_ALTERNATE)
         {
@@ -1014,7 +1223,12 @@ namespace WindElements {
             SetPath(FillMode);
             return true;
         }
-
+        /// <summary>
+        /// 设置颜色
+        /// </summary>
+        /// <param name="color">目标颜色</param>
+        /// <param name="renderTarget">d2d窗口目标</param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
         {
             if (!renderTarget)
@@ -1028,17 +1242,20 @@ namespace WindElements {
         {
             return Draw(wind->GetD2DTargetP());
         }
-        bool Draw(ID2D1RenderTarget* wind) override
+        bool Draw(ID2D1RenderTarget* d2dRenderTarget) override
         {
-            if (!m_Color || !pGeometry || !wind)
+            if (!m_Color || !pGeometry || !d2dRenderTarget)
                 return false;
-            wind->DrawGeometry(pGeometry, m_Color);
+            d2dRenderTarget->GetTransform(&originalTransform);
+            d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
+            d2dRenderTarget->DrawGeometry(pGeometry, m_Color);
             if (m_Fill) {
                 if (m_FillColor)
-                    wind->FillGeometry(pGeometry, m_FillColor);
+                    d2dRenderTarget->FillGeometry(pGeometry, m_FillColor);
                 else
-                    wind->FillGeometry(pGeometry, m_Color);
+                    d2dRenderTarget->FillGeometry(pGeometry, m_Color);
             }
+            d2dRenderTarget->SetTransform(originalTransform);
             return true;
         }
     };
@@ -1061,6 +1278,11 @@ namespace WindElements {
         {
             SafeRelease(&m_Color);
         }
+        /// <summary>
+        /// 设置显示位置
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
         void SetPosition(float x, float y) override
         {
             float wDifference = x - m_ShowRectangle.left;
@@ -1071,12 +1293,22 @@ namespace WindElements {
             m_ShowRectangle.bottom += hDifference;
             m_Ellipse.point.x = (m_ShowRectangle.left + m_ShowRectangle.right) * 0.5f;
             m_Ellipse.point.y = (m_ShowRectangle.top + m_ShowRectangle.bottom) * 0.5f;
+            SetRotate(m_Angle, m_RotateCenter);
         }
+        /// <summary>
+        /// 设置显示宽度
+        /// </summary>
+        /// <param name="w"></param>
+        /// <param name="h"></param>
         void SetShowWide(float w, float h) override
         {
             auto pos = GetPosition();
             SetShowRect(D2D1::RectF(pos.x, pos.y, pos.x + w, pos.y + h));
         }
+        /// <summary>
+        /// 设置显示所在位置的矩形
+        /// </summary>
+        /// <param name="rect"></param>
         void SetShowRect(const D2D1_RECT_F& rect) override
         {
             m_ShowRectangle = rect;
@@ -1086,6 +1318,11 @@ namespace WindElements {
             m_Ellipse.radiusX = size.width * 0.5f;
             m_Ellipse.radiusY = size.height * 0.5f;
         }
+        /// <summary>
+        /// 所在椭圆中心点位置
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
         void SetEllipticalPosition(float x, float y)
         {
             auto size = GetShowSize();
@@ -1093,11 +1330,22 @@ namespace WindElements {
             size.height *= 0.5;
             SetShowRect(D2D1::RectF(x - size.width, y - size.height, x + size.width, y + size.height));
         }
+        /// <summary>
+        /// 设置半径
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
         void SetRadius(float x, float y)
         {
             auto pos = GetPosition();
             SetShowRect(D2D1::RectF(pos.x - x, pos.y - y, pos.x + x, pos.y + y));
         }
+        /// <summary>
+        /// 设置颜色
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="renderTarget"></param>
+        /// <returns></returns>
         bool SetColor(const D2D1_COLOR_F& color, ID2D1RenderTarget* renderTarget)
         {
             if (!renderTarget)
@@ -1107,10 +1355,18 @@ namespace WindElements {
                 return true;
             return false;
         }
+        /// <summary>
+        /// 设置是否填充
+        /// </summary>
+        /// <param name="fill"></param>
         void Fill(bool fill = true)
         {
             m_Fill = fill;
         }
+        /// <summary>
+        /// 设置线宽
+        /// </summary>
+        /// <param name="wide"></param>
         void SetWide(float wide)
         {
             m_Wide = wide;
@@ -1120,14 +1376,17 @@ namespace WindElements {
         {
             return Draw(wind->GetD2DTargetP());
         }
-        bool Draw(ID2D1RenderTarget* wind) override
+        bool Draw(ID2D1RenderTarget* d2dRenderTarget) override
         {
-            if (!m_Color || !wind)
+            if (!m_Color || !d2dRenderTarget)
                 return false;
+            d2dRenderTarget->GetTransform(&originalTransform);
+            d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
             if (m_Fill)
-                wind->FillEllipse(m_Ellipse, m_Color);
+                d2dRenderTarget->FillEllipse(m_Ellipse, m_Color);
             else
-                wind->DrawEllipse(m_Ellipse, m_Color, m_Wide);
+                d2dRenderTarget->DrawEllipse(m_Ellipse, m_Color, m_Wide);
+            d2dRenderTarget->SetTransform(originalTransform);
             return true;
         }
     };

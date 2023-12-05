@@ -8,6 +8,7 @@ class Room;
 class RoomManage;
 class RoomObject;
 
+
 class Camera2D {
 public:
     Vector::Vec2 m_Position;
@@ -127,7 +128,144 @@ public:
     virtual void WindowSizeChange(int w, int h) { }
     friend class Room;
 };
+class RoomObjectSet : public RoomObject {
+    std::vector<RoomObject*> m_Objects;
+public:
+    void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera) override
+    {
+        for (auto& obj : m_Objects) {
+            obj->Draw(wind, Camera);
+        }
+    }
+    void Init(Game::MainWind_D2D* wind) override
+    {
+        auto windowSize = wind->GetWindSize();
+        for (auto& obj : m_Objects) {
+            obj->Init(wind);
+            obj->WindowSizeChange(windowSize.cx, windowSize.cy);
+        }
+    }
+    void Silent(Game::MainWind_D2D* wind) override
+    {
+        for (auto& obj : m_Objects) {
+            obj->Silent(wind);
+        }
+    }
+    void WindowSizeChange(int w, int h) override
+    {
+        for (auto& obj : m_Objects) {
+            obj->WindowSizeChange(w, h);
+        }
+    }
 
+
+    /// <summary>
+    /// 查找房间对象是否在集合中
+    /// 找到返回对应位置
+    /// 不在返回-2
+    /// 错误传参-1
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <returns></returns>
+    long long FindObj(RoomObject* obj)
+    {
+        if (!obj)
+            return -1;
+        auto size = m_Objects.size();
+        for (unsigned long long i = 0; i < size; ++i) {
+            if (m_Objects[i] == obj) {
+                return i;
+            }
+        }
+        return -2;
+    }
+    /// <summary>
+    /// 添加场景对象到指定位置
+    /// </summary>
+    /// <param name="obj">要添加的场景对象</param>
+    /// <param name="pos">位置，默认最后,可以小于0</param>
+    /// <returns>添加的位置id，
+    /// 添加成功返回非负数，为对应位置，
+    /// -1标识对象为空，
+    /// -2标识索引越界,
+    /// -3标识为重复添加</returns>
+    long long AddObject(RoomObject* obj, long long pos = -1)
+    {
+        if (!obj)
+            return -1;
+        auto size = m_Objects.size();
+        if (pos < 0) {
+            pos += size + 1;
+            if (pos < 0)
+                return -2;
+        }
+        if (pos > size) {
+            return -2;
+        }
+        if (FindObj(obj) == -2)
+        {
+            m_Objects.insert(m_Objects.begin() + pos, obj);
+            return pos;
+        }
+        return -3;
+    }
+    /// <summary>
+    /// 添加场景对象到指定位置
+    /// </summary>
+    /// <param name="obj">要添加的场景对象</param>
+    /// <param name="pos">位置，默认最后,可以小于0</param>
+    /// <returns>添加的位置id，
+    /// 添加成功返回非负数，为对应位置，
+    /// -1标识对象为空，
+    /// -2标识索引越界,
+    /// -3标识为重复添加</returns>
+    long long AddObject(RoomObject& obj, long long pos = -1)
+    {
+        return AddObject(&obj, pos);
+    }
+    /// <summary>
+    /// 删除房间对象
+    /// </summary>
+    /// <param name="obj"></param>
+    void DeleteObj(RoomObject* obj)
+    {
+        if (!obj)
+            return;
+        auto i = FindObj(obj);
+        if (i >= 0)
+        {
+            m_Objects.erase(m_Objects.begin() + i);
+        }
+    }
+    /// <summary>
+    /// 删除对应位置的值
+    /// </summary>
+    /// <param name="pos"></param>
+    void DeleteObj(long long pos)
+    {
+        auto size = m_Objects.size();
+        if (pos < 0) {
+            pos += size;
+            if (pos < 0)
+                return;
+        }
+        if (pos > size) {
+            return;
+        }
+        auto aim = m_Objects.begin() + pos;
+        m_Objects.erase(aim);
+    }
+    void DeleteObj(RoomObject& obj)
+    {
+        DeleteObj(&obj);
+    }
+    RoomObject* GetObj(long long id)
+    {
+        if (id < 0 || id >= m_Objects.size())
+            return nullptr;
+        return m_Objects[id];
+    }
+};
 namespace RoomCallback {
     using RoomKeyCallback = void (*)(Room*, int KeyInputChar, int Frequency, KeyMode);
     using RoomMouseCallback = void (*)(Room*, int x, int y, int Frequency, MouseMessageType, KeyMode);
@@ -178,17 +316,14 @@ class Room {
             return;
         if (room->m_SizeCallback)
             room->m_SizeCallback(room, x, y);
-        for (auto& obj : room->m_Objects) {
-            obj->WindowSizeChange(x, y);
-        }
+        room->m_RoomObjectSet.WindowSizeChange(x, y);
     }
-
-    std::vector<RoomObject*> m_Objects;
+    RoomObjectSet m_RoomObjectSet;
     COLORREF m_ClearColor;
     bool m_BKClearRun;
 
     RoomManage* m_BindedRoomManage;
-    long long m_RoomUserData;
+    void* m_RoomUserData;
     RoomCallback::RoomKeyCallback m_RoomKeyCallback;
     RoomCallback::RoomMouseCallback m_MouseCallback;
     RoomCallback::RoomSizeCallback m_SizeCallback;
@@ -214,15 +349,13 @@ public:
     virtual ~Room()
     {
     }
-    void Draw(MainWind_D2D* m_wind)
+    void Draw(MainWind_D2D* window)
     {
         if (m_BKClearRun)
-            m_wind->ClearWindBackground(m_ClearColor);
-        for (auto& obj : m_Objects) {
-            obj->Draw(m_wind, m_Camera);
-        }
+            window->ClearWindBackground(m_ClearColor);
+        m_RoomObjectSet.Draw(window, m_Camera);
         if (m_UserWindowDrawCallback)
-            m_UserWindowDrawCallback(this, m_wind);
+            m_UserWindowDrawCallback(this, window);
     }
     RoomManage* GetRoomManage() const
     {
@@ -238,14 +371,7 @@ public:
     /// <returns></returns>
     long long FindObj(RoomObject* obj)
     {
-        if (!obj)
-            return -2;
-        for (unsigned long long i = 0; i < m_Objects.size(); ++i) {
-            if (m_Objects[i] == obj) {
-                return i;
-            }
-        }
-        return -1;
+        return m_RoomObjectSet.FindObj(obj);
     }
     /// <summary>
     /// 设置额外的窗口回调函数，用于场景对象缺失时以窗口元素绘制替代
@@ -272,19 +398,7 @@ public:
     /// <param name="pos">位置，默认最后</param>
     void AddObject(RoomObject* obj, long long pos = -1)
     {
-        if (!obj)
-            return;
-        auto size = m_Objects.size();
-        if (pos < 0) {
-            pos += size + 1;
-            if (pos < 0)
-                return;
-        }
-        if (pos > size) {
-            return;
-        }
-        if (FindObj(obj) == -1)
-            m_Objects.insert(m_Objects.begin() + pos, obj);
+        m_RoomObjectSet.AddObject(obj, pos);
     }
     /// <summary>
     /// 添加场景对象到指定位置
@@ -301,11 +415,7 @@ public:
     /// <param name="obj"></param>
     void DeleteObj(RoomObject* obj)
     {
-        if (!obj)
-            return;
-        auto i = FindObj(obj);
-        if (i >= 0)
-            m_Objects.erase(m_Objects.begin() + i);
+        m_RoomObjectSet.DeleteObj(obj);
     }
     void DeleteObj(RoomObject& obj)
     {
@@ -313,9 +423,7 @@ public:
     }
     RoomObject* GetObj(long long id)
     {
-        if (id < 0 || id >= m_Objects.size())
-            return nullptr;
-        return m_Objects[id];
+        m_RoomObjectSet.GetObj(id);
     }
     void SetClearBackground(COLORREF color, bool open = true)
     {
@@ -327,10 +435,7 @@ public:
         Start();
 
         auto windowSize = window->GetWindSize();
-        for (auto& o : m_Objects) {
-            o->Init(window);
-            o->WindowSizeChange(windowSize.cx, windowSize.cy);
-        }
+        m_RoomObjectSet.Init(window);
         window->SetUserData((LONG64)this);
         window->SetPaintCallback(StaticDraw);
         window->SetKeyCallback(StaticKeyCallback);
@@ -349,24 +454,22 @@ public:
     {
         m_SizeCallback = callback;
     }
-    void SetRoomUserData(long long data)
+    void SetRoomUserData(void* data)
     {
         m_RoomUserData = data;
     }
-    const long long& GetRoomUserData() const
+    const auto& GetRoomUserData() const
     {
         return m_RoomUserData;
     }
-    long long& GetRoomUserData()
+    auto& GetRoomUserData()
     {
         return m_RoomUserData;
     }
     void LeaveRoom(MainWind_D2D* window)
     {
         window->SetUserData(0);
-        for (auto& o : m_Objects) {
-            o->Silent(window);
-        }
+        m_RoomObjectSet.Silent(window);
         End();
     }
     template <typename AimRoom>
@@ -471,82 +574,71 @@ public:
 };
 
 namespace RoomObj {
-    class RoomObjectSet : public RoomObject {
-        std::vector<RoomObject*> m_Objects;
+
+    class RoomObjectUnorderedSet :public RoomObject
+    {
+        std::set<RoomObject*>m_ObjectSet;
+    public:
         void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera) override
         {
-            for (auto& obj : m_Objects) {
+            for (auto& obj : m_ObjectSet) {
                 obj->Draw(wind, Camera);
             }
         }
         void Init(Game::MainWind_D2D* wind) override
         {
-            for (auto& obj : m_Objects) {
+            auto windowSize = wind->GetWindSize();
+            for (auto& obj : m_ObjectSet) {
                 obj->Init(wind);
+                obj->WindowSizeChange(windowSize.cx, windowSize.cy);
             }
         }
         void Silent(Game::MainWind_D2D* wind) override
         {
-            for (auto& obj : m_Objects) {
+            for (auto& obj : m_ObjectSet) {
                 obj->Silent(wind);
             }
         }
         void WindowSizeChange(int w, int h) override
         {
-            for (auto& obj : m_Objects) {
+            for (auto& obj : m_ObjectSet) {
                 obj->WindowSizeChange(w, h);
             }
         }
-
-    public:
         /// <summary>
-        /// 查找房间对象是否在集合中
-        /// 找到返回对应位置
-        /// 不在返回-1
-        /// 错误传参-2
+        /// 查找对象是否在集合中
+        /// 返回容器的迭代器
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        long long FindObj(RoomObject* obj)
+        auto FindObj(RoomObject* obj)
         {
-            if (!obj)
-                return -2;
-            for (unsigned long long i = 0; i < m_Objects.size(); ++i) {
-                if (m_Objects[i] == obj) {
-                    return i;
-                }
-            }
-            return -1;
+            return m_ObjectSet.find(obj);
         }
         /// <summary>
-        /// 添加场景对象到指定位置
+        /// 添加对象到集合中
+        /// 添加成功返回当前集合数量
+        /// 错误传参返回-1
         /// </summary>
-        /// <param name="obj">要添加的场景对象</param>
-        /// <param name="pos">位置，默认最后,可以小于0</param>
-        void AddObject(RoomObject* obj, long long pos = -1)
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        long long AddObject(RoomObject* obj)
         {
             if (!obj)
-                return;
-            auto size = m_Objects.size();
-            if (pos < 0) {
-                pos += size + 1;
-                if (pos < 0)
-                    return;
-            }
-            if (pos > size) {
-                return;
-            }
-            if (FindObj(obj) == -1)
-                m_Objects.insert(m_Objects.begin() + pos, obj);
+                return -1;
+            m_ObjectSet.insert(obj);
+            return m_ObjectSet.size();
         }
         /// <summary>
-        /// 添加场景对象到指定位置
+        /// 添加对象到集合中
+        /// 添加成功返回当前集合数量
+        /// 错误传参返回-1
         /// </summary>
-        /// <param name="obj">要添加的场景对象</param>
-        /// <param name="pos">位置，默认最后，值可以小于0</param>
-        void AddObject(RoomObject& obj, long long pos = -1)
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        long long AddObject(RoomObject& obj)
         {
-            AddObject(&obj, pos);
+            return AddObject(&obj);
         }
         /// <summary>
         /// 删除房间对象
@@ -556,34 +648,18 @@ namespace RoomObj {
         {
             if (!obj)
                 return;
-            auto i = FindObj(obj);
-            if (i >= 0)
-                m_Objects.erase(m_Objects.begin() + i);
+            m_ObjectSet.erase(obj);
         }
-        void DeleteObj(long long pos)
+        void Clear()
         {
-            auto size = m_Objects.size();
-            if (pos < 0) {
-                pos += size;
-                if (pos < 0)
-                    return;
-            }
-            if (pos > size) {
-                return;
-            }
-            m_Objects.erase(m_Objects.begin() + pos);
+            m_ObjectSet.clear();
         }
         void DeleteObj(RoomObject& obj)
         {
             DeleteObj(&obj);
         }
-        RoomObject* GetObj(long long id)
-        {
-            if (id < 0 || id >= m_Objects.size())
-                return nullptr;
-            return m_Objects[id];
-        }
     };
+
     /// <summary>
     /// 场景ui元素。
     /// 直接绘制到窗口。
@@ -844,6 +920,8 @@ namespace RoomObj {
         void Init(Game::MainWind_D2D* m_wind) override { }
         void Draw(MainWind_D2D* m_wind, const Camera2D&) override
         {
+            if (!m_Image)
+                return;
             m_Image->SetOpacity(m_Opacity);
             m_Image->SetShowRect(m_ShowRectangle);
             m_Image->Draw(m_wind);
@@ -1304,9 +1382,24 @@ namespace RoomObj {
             , m_CurrentIndex(0)
         {
         }
+        /// <summary>
+        /// 设置动画对应的数据
+        /// 会根据对应的动画长度生成默认的顺序索引，
+        /// 如果要设置指定顺序，使用SetIndex函数
+        /// </summary>
+        /// <param name="data">目标动画控件</param>
         void SetData(WindControl::d2dPictureAnimationBase* data)
         {
-            m_AnimationData = data;
+            if(data)
+            {
+                m_AnimationData = data;
+                auto size = m_AnimationData->GetAnimationSize();
+                m_Index.clear();
+                for (int i = 0; i < size; ++i)
+                {
+                    m_Index.push_back(i);
+                }
+            }
         }
         auto* GetCurrentAnimation() const
         {
@@ -1329,7 +1422,7 @@ namespace RoomObj {
         }
         void Draw(Game::MainWind_D2D* wind, const Camera2D& Camera) override
         {
-            if (!wind || (!m_AnimationData))
+            if (!wind || (!m_AnimationData) || m_Index.empty())
                 return;
             auto Position = ScenceToWindow(m_Position, wind, Camera);
             auto ShowWide = CameraToWindow(m_Wide, wind, Camera) * 0.5;
