@@ -58,13 +58,16 @@ add_headerfiles("/src/include/*.hpp")
 ```
 链接库
 ```lua
-add_syslinks("user32","d2d1","dwrite","ole32","windowscodecs","Winmm")
+add_syslinks("user32","gdi32","d2d1","dwrite","ole32","windowscodecs","Winmm")
 ```
 定义字符串类型（必要的）
 ```lua
 add_defines("UNICODE")
 ```
-
+设置文件编译类型
+```lua
+set_encodings("utf-8")
+```
 这样头文件就可以正常包含在源文件里了。
 
 若尚未创建xmake项目，可以使用该命令快速创建：
