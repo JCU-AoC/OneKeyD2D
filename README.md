@@ -41,6 +41,9 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
         //结束
         "-finput-charset=UTF-8",    //指定输入的文件格式
     ],
+    "defines": [
+                "UNICODE",
+            ],
 ```
 ## Visual Studio 配置环境
 
@@ -52,6 +55,14 @@ git clone https://github.com/JCU-AoC/OneKeyD2D.git
 
 ```lua
 add_headerfiles("/src/include/*.hpp")
+```
+链接库
+```lua
+add_syslinks("user32","d2d1","dwrite","ole32","windowscodecs","Winmm")
+```
+定义字符串类型（必要的）
+```lua
+add_defines("UNICODE")
 ```
 
 这样头文件就可以正常包含在源文件里了。
