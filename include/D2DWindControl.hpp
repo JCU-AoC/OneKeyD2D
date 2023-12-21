@@ -1561,6 +1561,13 @@ namespace WindControl {
         {
             m_DataPicture = data;
         }
+        void SetData(WindElements::d2dPicture* arr,int arrSize)
+        {
+            for (int i = 0; i < arrSize; ++i)
+            {
+                m_DataPicture.push_back(arr + i);
+            }
+        }
         void AddData(WindElements::d2dPicture* data)
         {
             m_DataPicture.push_back(data);

@@ -516,6 +516,7 @@ namespace WindElements {
         {
             if (!m_TextFormat || fontSize < 1)
                 return;
+
             WCHAR name[64] = {};
             m_TextFormat->GetFontFamilyName(name, 64);
             SetTextFormat(
@@ -525,6 +526,7 @@ namespace WindElements {
                 m_TextFormat->GetFontStyle(),
                 m_TextFormat->GetFontStretch(),
                 fontSize, L"");
+            
         }
         /// <summary>
         /// 设置字体样式
@@ -548,6 +550,16 @@ namespace WindElements {
         {
             if (fontSize < 1)
                 return S_FALSE;
+            bool haveLastTextAlignment = false;
+            DWRITE_PARAGRAPH_ALIGNMENT LastParagraphAlignment;
+            DWRITE_TEXT_ALIGNMENT LastAlignment;
+
+            if(m_TextFormat)
+            {
+                LastParagraphAlignment = m_TextFormat->GetParagraphAlignment();
+                LastAlignment = m_TextFormat->GetTextAlignment();
+                haveLastTextAlignment = true;
+            }
             IDWriteFactory* writeFactory = nullptr;
             HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&writeFactory));
             if (FAILED(hr)) {
@@ -564,6 +576,11 @@ namespace WindElements {
                 localeName,
                 &m_TextFormat);
             SafeRelease(&writeFactory);
+            if(haveLastTextAlignment)
+            {
+                m_TextFormat->SetParagraphAlignment(LastParagraphAlignment);
+                m_TextFormat->SetTextAlignment(LastAlignment);
+            }
             return S_OK;
         }
         /// <summary>

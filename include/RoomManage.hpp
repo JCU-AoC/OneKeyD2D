@@ -267,6 +267,10 @@ namespace RoomObj {
         {
             DeleteObj(&obj);
         }
+        void DeleteAllObj()
+        {
+            m_Objects.clear();
+        }
         RoomObject* GetObj(long long id)
         {
             if (id < 0 || id >= m_Objects.size())
@@ -367,18 +371,32 @@ namespace RoomObj {
     /// </summary>
     class RoomUI : public RoomObject {
     protected:
-        bool m_UseForUIRect;
+        bool m_UseForUIPosition = false;
+        bool m_UseForUIWidth = false;
         D2D1_RECT_F m_ShowRectForUI;
         D2D1_RECT_F m_ShowRectangle;
         void WindowSizeChange(int w, int h) override
         {
-            if (m_UseForUIRect)
-                m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
+            if (m_UseForUIWidth)
+                if (m_UseForUIPosition)
+                    m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
+                else
+                {
+                    auto size = GetShowSizeForUI();
+                    m_ShowRectangle = D2D1::RectF(m_ShowRectangle.left, m_ShowRectangle.top, m_ShowRectangle.left + size.width * w, m_ShowRectangle.top + size.height * h);
+                }
+            else
+                if (m_UseForUIPosition)
+                {
+                    auto size = GetShowSize();
+                    auto pos = D2D1::Point2F(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h);
+                    m_ShowRectangle = D2D1::RectF(pos.x, pos.y, pos.x + size.width, pos.y + size.height);
+                }
         }
 
     public:
         RoomUI()
-            : m_UseForUIRect(false)
+            : m_UseForUIPosition(false)
             , m_ShowRectangle(D2D1::RectF())
             , m_ShowRectForUI(D2D1::RectF())
         {
@@ -394,7 +412,8 @@ namespace RoomObj {
         }
         void SetShowRect(const D2D1_RECT_F& rect)
         {
-            m_UseForUIRect = false;
+            m_UseForUIPosition = false;
+            m_UseForUIWidth = false;
             m_ShowRectangle = rect;
         }
         /// <summary>
@@ -404,7 +423,7 @@ namespace RoomObj {
         /// <param name="y"></param>
         void SetShowPosition(float x, float y)
         {
-            m_UseForUIRect = false;
+            m_UseForUIPosition = false;
             float wDifference = x - m_ShowRectangle.left;
             float hDifference = y - m_ShowRectangle.top;
             m_ShowRectangle.left += wDifference;
@@ -424,7 +443,7 @@ namespace RoomObj {
         /// <param name="height"></param>
         void SetShowWide(float width, float height)
         {
-            m_UseForUIRect = false;
+            m_UseForUIWidth = false;
             m_ShowRectangle.bottom = height + m_ShowRectangle.top;
             m_ShowRectangle.right = width + m_ShowRectangle.left;
         }
@@ -439,21 +458,24 @@ namespace RoomObj {
         }
         /// <summary>
         /// 接受的数据范围为0-1表示相对位置
+        /// 需要调用Update更新位置
         /// </summary>
         /// <param name="rect"></param>
         void SetShowRectForUI(const D2D1_RECT_F& rect)
         {
-            m_UseForUIRect = true;
+            m_UseForUIPosition = true;
+            m_UseForUIWidth = true;
             m_ShowRectForUI = rect;
         }
         /// <summary>
         /// 接受的数据范围为0-1表示相对位置
+        /// 需要调用Update更新位置
         /// </summary>
         /// <param name="x"></param>
         /// <param name="y"></param>
         void SetShowPositionForUI(float x, float y)
         {
-            m_UseForUIRect = true;
+            m_UseForUIPosition = true;
             float wDifference = x - m_ShowRectForUI.left;
             float hDifference = y - m_ShowRectForUI.top;
             m_ShowRectForUI.left += wDifference;
@@ -462,13 +484,22 @@ namespace RoomObj {
             m_ShowRectForUI.bottom += hDifference;
         }
         /// <summary>
+        /// 更新位置
+        /// </summary>
+        /// <param name="window">目标窗口</param>
+        void Update(const MainWind* window)
+        {
+            auto windowSize = window->GetWindSize();
+            WindowSizeChange(windowSize.cx, windowSize.cy);
+        }
+        /// <summary>
         /// 接受的数据范围为0-1表示相对位置
         /// </summary>
         /// <param name="width"></param>
         /// <param name="height"></param>
         void SetShowWideForUI(float width, float height)
         {
-            m_UseForUIRect = true;
+            m_UseForUIWidth = true;
             m_ShowRectForUI.bottom = height + m_ShowRectForUI.top;
             m_ShowRectForUI.right = width + m_ShowRectForUI.left;
         }
@@ -651,9 +682,8 @@ namespace RoomObj {
 
     class TextUI : public RoomUI {
         Game::MainWind_D2D* m_wind;
-        WindElements::d2dText m_text;
-
     public:
+        WindElements::d2dText m_text;
         TextUI()
             : m_wind(nullptr)
         {
@@ -765,7 +795,7 @@ namespace RoomObj {
         }
         void WindowSizeChange(int w, int h) override
         {
-            if (m_UseForUIRect)
+            if (m_UseForUIPosition)
                 m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
             m_Button.SetRect(m_ShowRectangle);
         }
@@ -823,7 +853,7 @@ namespace RoomObj {
         }
         void WindowSizeChange(int w, int h) override
         {
-            if (m_UseForUIRect)
+            if (m_UseForUIPosition)
                 m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
             m_Button.SetRect(m_ShowRectangle);
         }
@@ -917,13 +947,15 @@ namespace RoomObj {
         void Draw(MainWind_D2D* window, const Camera2D& camera) override
         {
             auto size = window->GetWindSize();
-            auto windowPos = ScenceToWindow(m_Position, window, camera);
-            if (windowPos.x > size.cx || windowPos.y > size.cy)
+            auto Position = ScenceToWindow(m_Position, window, camera);
+            auto ShowWide = CameraToWindow(m_Wide, window, camera) * 0.5;
+            auto LeftTop = Position - ShowWide;
+            if (LeftTop.x > size.cx || LeftTop.y > size.cy)
                 return;
-            auto windowWide = CameraToWindow(m_Wide, window, camera) + windowPos;
-            if (windowWide.x < 0 || windowWide.y < 0)
+            auto RightBottom = Position + ShowWide;
+            if (RightBottom.x < 0 || RightBottom.y < 0)
                 return;
-            m_Text.SetShowRect(D2D1::RectF(windowPos.x, windowPos.y, windowWide.x, windowWide.y));
+            m_Text.SetShowRect(D2D1::RectF(LeftTop.x, LeftTop.y, RightBottom.x, RightBottom.y));
             m_Text.Draw(window);
         }
 
@@ -1340,6 +1372,10 @@ public:
     {
         DeleteObj(&obj);
     }
+    void DeleteAllObj()
+    {
+        m_RoomObjectSet.DeleteAllObj();
+    }
     RoomObject* GetObj(long long id)
     {
         m_RoomObjectSet.GetObj(id);
@@ -1513,6 +1549,22 @@ namespace RoomObjTool {
             , activation(0b01011010)
         {
         }
+        /// <summary>
+        /// 指定瓦片地图点位贴图规则，
+        /// 前9个参数为判断9宫格的数据组合类型，
+        /// 最后为指定哪些参数启用
+        /// </summary>
+        /// <param name="LT">左上</param>
+        /// <param name="MT">上</param>
+        /// <param name="RT">右上</param>
+        /// <param name="LM">左</param>
+        /// <param name="MM">中</param>
+        /// <param name="RM">右</param>
+        /// <param name="LB">左下</param>
+        /// <param name="MB">下</param>
+        /// <param name="RB">右下</param>
+        /// <param name="Result">满足此规则代表的目标贴图索引</param>
+        /// <param name="Activation">周围一圈的有效范围，每bit分别代表左上，上，右上，左，右，左下，下，右下</param>
         TileMapType(
             bool LT, bool MT, bool RT,
             bool LM, bool MM, bool RM,
@@ -1531,6 +1583,13 @@ namespace RoomObjTool {
             , activation(Activation)
         {
         }
+        /// <summary>
+        /// 指定瓦片地图点位贴图规则
+        /// </summary>
+        /// <param name="Rule">周围一圈的判断条件，每bit分别代表左上，上，右上，左，右，左下，下，右下</param>
+        /// <param name="MM">中心点类型</param>
+        /// <param name="Result">满足此规则代表的目标贴图索引</param>
+        /// <param name="Activation">周围一圈的有效范围，每bit分别代表左上，上，右上，左，右，左下，下，右下</param>
         TileMapType(char Rule, bool MM, int Result, char Activation = 0b01011010)
             : result(Result)
             , mm(MM)

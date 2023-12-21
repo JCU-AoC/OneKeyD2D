@@ -462,9 +462,9 @@ public:
     static void StaticWindowMessageLoop()
     {
         MSG msg = {};
-        while (GetMessage(&msg, NULL, 0, 0) > 0) {
+        while (GetMessageW(&msg, NULL, 0, 0) > 0) {
             TranslateMessage(&msg);
-            DispatchMessage(&msg);
+            DispatchMessageW(&msg);
         }
     }
     /// <summary>
@@ -974,7 +974,7 @@ public:
         if (!m_hdc)
             return false;
         RECT rect = { x, y, x + w, y + h };
-        DrawTextA(m_hdc, ShowText.c_str(), (int)ShowText.size(), &rect, DT_CENTER);
+        return DrawTextA(m_hdc, ShowText.c_str(), (int)ShowText.size(), &rect, DT_CENTER);
     }
     /// <summary>
     /// 绘制文本
@@ -991,7 +991,7 @@ public:
         if (!m_hdc)
             return false;
         RECT rect = { x, y, x + w, y + h };
-        DrawTextW(m_hdc, ShowText.c_str(), (int)ShowText.size(), &rect, DT_CENTER);
+        return DrawTextW(m_hdc, ShowText.c_str(), (int)ShowText.size(), &rect, DT_CENTER);
     }
     /// <summary>
     /// 绘制多边形

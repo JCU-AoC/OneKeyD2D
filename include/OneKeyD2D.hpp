@@ -6,5 +6,6 @@
 #include"WindowElements.hpp"
 #include"D2DWindControl.hpp"
 #include"RoomManage.hpp"
+#include"GameTools.hpp"
 
 #endif // !OneKeyD2D_HPP
