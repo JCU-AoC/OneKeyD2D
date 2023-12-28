@@ -123,7 +123,7 @@ public:
         m_Opacity = opacity;
     }
     virtual void Draw(Game::MainWind_D2D* window, const Camera2D& Camera) = 0;
-    virtual void Init(Game::MainWind_D2D* window) { }
+    virtual void Activation(Game::MainWind_D2D* window) { }
     virtual void Silent(Game::MainWind_D2D* window) { }
     virtual void WindowSizeChange(int w, int h) { }
     friend class Room;
@@ -145,12 +145,12 @@ namespace RoomObj {
                 obj->Draw(wind, Camera);
             }
         }
-        void Init(Game::MainWind_D2D* wind) override
+        void Activation(Game::MainWind_D2D* wind) override
         {
             auto windowSize = wind->GetWindSize();
             for (auto& obj : m_Objects) {
-                obj->Init(wind);
                 obj->WindowSizeChange(windowSize.cx, windowSize.cy);
+                obj->Activation(wind);
             }
         }
         void Silent(Game::MainWind_D2D* wind) override
@@ -288,12 +288,12 @@ namespace RoomObj {
                 obj->Draw(wind, Camera);
             }
         }
-        void Init(Game::MainWind_D2D* wind) override
+        void Activation(Game::MainWind_D2D* wind) override
         {
             auto windowSize = wind->GetWindSize();
             for (auto& obj : m_ObjectSet) {
-                obj->Init(wind);
                 obj->WindowSizeChange(windowSize.cx, windowSize.cy);
+                obj->Activation(wind);
             }
         }
         void Silent(Game::MainWind_D2D* wind) override
@@ -647,7 +647,7 @@ namespace RoomObj {
         {
             m_Image = picture;
         }
-        void Init(Game::MainWind_D2D* m_wind) override { }
+        void Activation(Game::MainWind_D2D* m_wind) override { }
         void Draw(MainWind_D2D* m_wind, const Camera2D&) override
         {
             if (!m_Image)
@@ -672,7 +672,7 @@ namespace RoomObj {
         {
             m_UI.Bind(&m_Data);
         }
-        void Init(Game::MainWind_D2D* m_wind) override { }
+        void Activation(Game::MainWind_D2D* m_wind) override { }
         void Draw(MainWind_D2D* m_wind, const Camera2D& camera) override
         {
             m_UI.SetShowRect(m_ShowRectangle);
@@ -708,7 +708,7 @@ namespace RoomObj {
         {
             m_text.SetRotate(angle, point.ToPointD2D());
         }
-        void Init(Game::MainWind_D2D* wind) override
+        void Activation(Game::MainWind_D2D* wind) override
         {
             m_wind = wind;
             m_text.SetColor(m_text.GetColor(), wind->GetD2DTargetP());
@@ -773,7 +773,7 @@ namespace RoomObj {
             m_AnimationData->ToPicture(m_Index[m_CurrentIndex], false);
             m_AnimationData->Draw(wind);
         }
-        void Init(Game::MainWind_D2D* m_wind) override
+        void Activation(Game::MainWind_D2D* m_wind) override
         {
         }
     };
@@ -785,7 +785,7 @@ namespace RoomObj {
         {
             m_Button.Draw(wind, m_ShowRectangle);
         }
-        void Init(Game::MainWind_D2D* wind) override
+        void Activation(Game::MainWind_D2D* wind) override
         {
             m_Button.Bind(wind);
         }
@@ -793,13 +793,6 @@ namespace RoomObj {
         {
             m_Button.Unbind();
         }
-        void WindowSizeChange(int w, int h) override
-        {
-            if (m_UseForUIPosition)
-                m_ShowRectangle = D2D1::RectF(m_ShowRectForUI.left * w, m_ShowRectForUI.top * h, m_ShowRectForUI.right * w, m_ShowRectForUI.bottom * h);
-            m_Button.SetRect(m_ShowRectangle);
-        }
-
     public:
         ButtonUI()
         {
@@ -843,7 +836,7 @@ namespace RoomObj {
         {
             m_Button.Draw(wind, m_ShowRectangle);
         }
-        void Init(Game::MainWind_D2D* wind) override
+        void Activation(Game::MainWind_D2D* wind) override
         {
             m_Button.Bind(wind);
         }
@@ -894,7 +887,7 @@ namespace RoomObj {
             m_Edit.SetShowRect(m_ShowRectangle);
             m_Edit.Draw(window);
         }
-        void Init(MainWind_D2D* window) override
+        void Activation(MainWind_D2D* window) override
         {
             m_Edit.Bind(window);
         }
@@ -905,6 +898,46 @@ namespace RoomObj {
 
     public:
         WindControl::d2dEdit m_Edit;
+    };
+    
+    class CheckBoxUI:public RoomUI
+    {
+        void Activation(Game::MainWind_D2D* wind) override
+        {
+            drawAim.Bind(wind);
+        }
+        void Silent(Game::MainWind_D2D* wind) override
+        {
+            drawAim.Unbind();
+        }
+    public:
+        WindControl::d2dCheckBox drawAim;
+        CheckBoxUI(){}
+        void Draw(MainWind_D2D* window, const Camera2D& camera) override
+        {
+            drawAim.SetShowRect(m_ShowRectangle);
+            drawAim.Draw(window);
+        }
+    };
+    
+    class MouseSlider:public RoomUI
+    {
+        void Activation(Game::MainWind_D2D* wind) override
+        {
+            m_slider.SetShowRect(m_ShowRectangle);
+            m_slider.Bind(wind);
+        }
+        void Silent(Game::MainWind_D2D* wind) override
+        {
+            m_slider.Unbind();
+        }
+    public:
+        WindControl::d2dMouseSlider m_slider;
+        MouseSlider(){}
+        void Draw(MainWind_D2D* window, const Camera2D& camera) override
+        {
+            m_slider.DrawD2D(window);
+        }
     };
     /// <summary>
     /// 设置图片到场景
@@ -938,7 +971,7 @@ namespace RoomObj {
             m_Image->SetOpacity(m_Opacity);
             m_Image->Draw(wind->GetD2DTargetP(), m_Crop);
         }
-        void Init(MainWind_D2D*) override { }
+        void Activation(MainWind_D2D*) override { }
     };
     /// <summary>
     /// 场景坐标系的文本
@@ -1095,7 +1128,7 @@ namespace RoomObj {
                 }
             }
         }
-        void Init(MainWind_D2D*) override { }
+        void Activation(MainWind_D2D*) override { }
     };
 
     class Animation : public RoomScence {
@@ -1170,7 +1203,7 @@ namespace RoomObj {
             m_AnimationData->ToPicture(m_Index[m_CurrentIndex], false);
             m_AnimationData->Draw(wind);
         }
-        void Init(Game::MainWind_D2D* m_wind) override
+        void Activation(Game::MainWind_D2D* m_wind) override
         {
         }
     };
@@ -1390,7 +1423,7 @@ public:
         Start();
 
         auto windowSize = window->GetWindSize();
-        m_RoomObjectSet.Init(window);
+        m_RoomObjectSet.Activation(window);
         window->SetUserData((LONG64)this);
         window->SetPaintCallback(StaticDraw);
         window->SetKeyCallback(StaticKeyCallback);
@@ -1481,6 +1514,7 @@ public:
         }
         m_RoomIndex.insert(std::make_pair(id, room));
         room->m_BindedRoomManage = this;
+        return id;
     }
     void DeleteRoom(int id)
     {

@@ -46,24 +46,21 @@ namespace WindCallback {
 namespace WindElements {
     class d2dClickDetection {
     private:
-        float m_X, m_Y;
-        float m_RightX, m_RightY;
+        D2D1_RECT_F m_rect;
         LONG64 m_UserData;
         WindCallback::ButtonCallback m_Callback;
         bool m_Negation, m_Elliptic, m_Border;
 
     public:
         d2dClickDetection(float x = 0, float y = 0, float w = 0, float h = 0)
-            : m_RightX(x + w)
-            , m_RightY(h + y)
-            , m_UserData(0)
+            : m_UserData(0)
             , m_Negation(false)
             , m_Callback(nullptr)
             , m_Elliptic(false)
             , m_Border(false)
+            , m_rect(D2D1::RectF(x,y,x+w,y+h))
         {
-            m_X = x;
-            m_Y = y;
+
         }
         void Negation(bool negation = true)
         {
@@ -87,40 +84,37 @@ namespace WindElements {
         }
         void SetRectangle(const D2D_RECT_F& checkRect)
         {
-            m_X = checkRect.left;
-            m_Y = checkRect.top;
-            m_RightX = checkRect.right;
-            m_RightY = checkRect.bottom;
+            m_rect=checkRect;
         }
-        D2D_RECT_F GetRectangle() const
+        const D2D_RECT_F& GetRectangle() const
         {
-            return { m_X, m_Y, m_RightX, m_RightY };
+            return m_rect;
         }
         void SetPosition(float x, float y)
         {
-            float wDifference = x - m_X;
-            float hDifference = y - m_Y;
-            m_X += wDifference;
-            m_Y += hDifference;
-            m_RightX += wDifference;
-            m_RightY += hDifference;
+            auto size=GetSize();
+            SetRectangle(D2D1::RectF(x,y,x+size.x,y+size.y));
         }
         Vector::Vec2 GetPosition()const
         {
-            return Vector::Vec2(m_X, m_Y);
+            return Vector::Vec2(m_rect.left, m_rect.top);
         }
         void SetWide(float width, float height)
         {
-
-            m_RightY = height + m_Y;
-            m_RightX = width + m_X;
+            auto pos=GetPosition();
+            SetRectangle(D2D1::RectF(pos.x,pos.y,pos.x+width,pos.y+height));
         }
         Vector::Vec2 GetSize()const
         {
-            return Vector::Vec2(m_RightX - m_X, m_RightY - m_Y);
+            return Vector::Vec2(m_rect.right-m_rect.left, m_rect.bottom-m_rect.top);
         }
         bool CheckClick(float x, float y) const
         {
+            const float& m_X=m_rect.left;
+            const float& m_Y=m_rect.top;
+            const float& m_RightX=m_rect.right;
+            const float& m_RightY=m_rect.bottom;
+
             if (m_Border) {
                 if (x <= m_X || y <= m_Y || x >= m_RightX || y >= m_RightY) {
                     if (m_Negation)
@@ -190,13 +184,25 @@ protected:
     WindCallback::MouseCallback m_MouseCallback;
     std::set<WindElements::d2dClickDetection*> m_Buttons;
 
-    bool m_ButtonChange;
+    bool m_ButtonChange
+        ,m_OnlyOneceClick=true;
 
     virtual void OnPaint() = 0;
     virtual void OnSize(int width, int height) = 0;
     void OnMouse(UINT msg, int x, int y, int VirtualKey)
     {
         if (msg == WM_LBUTTONDOWN) {
+            if(m_OnlyOneceClick)
+            for (auto& bt : m_Buttons) {
+                if (bt->CheckClick((float)x, (float)y))
+                {
+                    bt->RunCallback(this);
+                    break;
+                }
+                if (m_ButtonChange)
+                    break;
+            }
+            else
             for (auto& bt : m_Buttons) {
                 if (bt->CheckClick((float)x, (float)y))
                     bt->RunCallback(this);
@@ -1080,7 +1086,8 @@ class MainWind_D2D : public MainWind {
 private:
     ID2D1Factory* m_d2dFactory;
     ID2D1HwndRenderTarget* m_d2dRenderTarget;
-
+    IDWriteFactory* m_d2dWriteFactory=nullptr;
+    //基础绘制
     D2D1_POINT_2F m_LastPoint;
     int m_PenWidth;
     ID2D1SolidColorBrush* m_PenBrush;
@@ -1089,11 +1096,11 @@ private:
     IDWriteTextFormat* m_TextFormat;
 
     D2D1_COLOR_F* m_BackgroundColor;
-
+    //时间
     FILETIME m_LastPaintTime;
     FILETIME m_NowTime;
     float m_IntervalTime;
-
+    //回调函数
     WindCallback::CharInputCallback_D2D m_CharCallback;
     WindCallback::PaintCallback_D2D m_PaintCallback;
     WindCallback::SizeCallback_D2D m_WindSizeCallback;
@@ -1222,10 +1229,18 @@ public:
         SafeRelease(&m_PenStyle);
         SafeReleaseP(&m_BackgroundColor);
         SafeRelease(&m_TextFormat);
+        SafeRelease(&m_d2dWriteFactory);
         CloseWind();
         if (WindCount::g_d2dMainWindCount == 0) {
             UnregisterClassW(WindClassName::MAIN_WINDOW_D2D_CLASS_NAME, m_hInstance);
         }
+    }
+    
+    IDWriteFactory*GetWriteFactory()
+    {
+        if(m_d2dWriteFactory)return m_d2dWriteFactory;
+        DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&m_d2dWriteFactory));
+        return m_d2dWriteFactory;
     }
     /// <summary>
     /// 获取d2d绘制目标

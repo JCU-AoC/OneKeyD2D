@@ -1,5 +1,4 @@
 #pragma once
-#include "WindowElements.hpp"
 #include <iomanip>
 #include <map>
 #include <minwindef.h>
@@ -7,10 +6,85 @@
 #include <vector>
 namespace Game {
 namespace WindControl {
+
+    class d2dControl
+    {
+    public:
+        virtual ~d2dControl(){};
+        
+        virtual const D2D1_RECT_F& GetShowRect()const=0;
+        virtual void SetShowRect(const D2D1_RECT_F&)=0;
+
+        virtual D2D1_POINT_2F GetShowPosition()const
+        {
+            auto rect=GetShowRect();
+            return D2D1::Point2F(rect.left,rect.top);
+        }
+        virtual D2D1_SIZE_F GetShowSize()const
+        {
+            auto rect=GetShowRect();
+            return D2D1::SizeF(-rect.left+rect.right,rect.bottom-rect.top);
+        }
+        void SetShowRect(const RECT& rect)
+        {
+            SetShowRect(D2D1::RectF(rect.left,rect.top,rect.right,rect.bottom));
+        }
+        void SetShowRect(float left, float top, float right, float bottom)
+        {
+            SetShowRect(D2D1::RectF(left,top,right,bottom));
+        }
+
+        void SetShowPosition(float x,float y)
+        {
+            auto size=GetShowSize();
+            SetShowRect(D2D1::RectF(x,y,x+size.width,y+size.height));
+        }
+        void SetShowPosition(const Vector::Vec2& vec)
+        {
+            SetShowPosition(vec.x,vec.y);
+        }
+        void SetShowPosition(const D2D1_POINT_2F& point)
+        {
+            SetShowPosition(point.x,point.y);
+        }
+
+        void SetShowSize(float width,float height)
+        {
+            auto point =GetShowPosition();
+            SetShowRect(D2D1::RectF(point.x,point.y,point.x+width,point.y+height));
+        }
+        void SetShowSize(const Vector::Vec2& vec)
+        {
+            SetShowSize(vec.x,vec.y);
+        }
+        void SetShowSize(const D2D1_SIZE_F& size)
+        {
+            SetShowSize(size.width,size.height);
+        }
+        void SetShowWide(float width,float height)
+        {
+            auto point =GetShowPosition();
+            SetShowRect(D2D1::RectF(point.x,point.y,point.x+width,point.y+height));
+        }
+        void SetShowWide(const Vector::Vec2& vec)
+        {
+            SetShowSize(vec.x,vec.y);
+        }
+        void SetShowWide(const D2D1_SIZE_F& size)
+        {
+            SetShowSize(size.width,size.height);
+        }
+        bool DrawD2D(MainWind_D2D* d2dWindow)
+        {
+            return Draw(d2dWindow->GetD2DTargetP());
+        }
+        virtual bool Draw(ID2D1RenderTarget* d2dWindow)=0;
+
+    };
     /// <summary>
     /// 以图片为背景的按钮
     /// </summary>
-    class d2dImageButton {
+    class d2dImageButton:public d2dControl {
         MainWind_D2D* m_TargetWind;
         WindElements::d2dClickDetection m_CheckRect;
         WindElements::d2dPicture m_BackgroundImage;
@@ -89,29 +163,24 @@ namespace WindControl {
                 m_TargetWind->DeleteButten(&m_CheckRect);
             m_TargetWind = nullptr;
         }
-        void SetRect(const D2D1_RECT_F& rect)
+
+        bool Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
         {
-            m_CheckRect.SetRectangle(rect);
-            m_BackgroundImage.SetShowRect(rect);
-            m_ShowText.SetShowRect(rect);
+            return Draw(d2dWind->GetD2DTargetP(), rect);
         }
-        void Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
+        bool Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
         {
-            Draw(d2dWind->GetD2DTargetP(), rect);
-        }
-        void Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
-        {
-            m_BackgroundImage.DrawInRect(d2dRenderTarget, rect);
+            return m_BackgroundImage.DrawInRect(d2dRenderTarget, rect)&&
             m_ShowText.Draw(d2dRenderTarget, rect);
         }
-        void Draw(MainWind_D2D* wind)
+        bool Draw(MainWind_D2D* wind)
         {
-            m_BackgroundImage.Draw(wind);
+            return m_BackgroundImage.Draw(wind)&&
             m_ShowText.Draw(wind);
         }
-        void Draw(ID2D1RenderTarget* wind)
+        bool Draw(ID2D1RenderTarget* wind)override
         {
-            m_BackgroundImage.Draw(wind);
+            return m_BackgroundImage.Draw(wind)&&
             m_ShowText.Draw(wind);
         }
         void LoadBackgroundImage(const std::wstring& filePath, MainWind_D2D* TargetWind)
@@ -126,11 +195,11 @@ namespace WindControl {
         {
             m_ShowText.SetShowText(str);
         }
-        std::wstring& GetShowString()
+        const std::wstring& GetShowString()const
         {
             return m_ShowText.GetShowText();
         }
-        const std::wstring& GetShowString() const
+        std::wstring& GetShowString()
         {
             return m_ShowText.GetShowText();
         }
@@ -146,16 +215,26 @@ namespace WindControl {
         {
             return m_ShowText.GetColor();
         }
-        D2D1_RECT_F GetShowRect() const
+        const D2D1_RECT_F& GetShowRect() const override
         {
             return m_CheckRect.GetRectangle();
         }
-        D2D1_SIZE_F GetShowSize() const
+        void SetShowRect(const D2D1_RECT_F& rect)override
+        {
+            m_CheckRect.SetRectangle(rect);
+            m_BackgroundImage.SetShowRect(rect);
+            m_ShowText.SetShowRect(rect);            
+        }
+        void SetRect(const D2D1_RECT_F& rect)
+        {
+            SetShowRect(rect);
+        }
+        D2D1_SIZE_F GetShowSize() const override
         {
             auto rect = m_CheckRect.GetRectangle();
             return D2D1::SizeF(rect.right - rect.left, rect.bottom - rect.top);
         }
-        D2D1_POINT_2F GetShowPosition() const
+        D2D1_POINT_2F GetShowPosition() const override
         {
             auto rect = m_CheckRect.GetRectangle();
             return D2D1::Point2F(rect.left, rect.top);
@@ -164,7 +243,7 @@ namespace WindControl {
     /// <summary>
     /// 已色块矩形为背景的按钮
     /// </summary>
-    class d2dColorButton {
+    class d2dColorButton:public d2dControl {
         MainWind_D2D* m_TargetWind;
         WindElements::d2dClickDetection m_CheckRect;
         WindElements::d2dRectangle m_Rectangle;
@@ -243,29 +322,48 @@ namespace WindControl {
                 m_TargetWind->DeleteButten(&m_CheckRect);
             m_TargetWind = nullptr;
         }
-        void SetRect(const D2D1_RECT_F& rect)
+        const D2D1_RECT_F& GetShowRect() const override
+        {
+            return m_CheckRect.GetRectangle();
+        }
+        void SetShowRect(const D2D1_RECT_F& rect)override
         {
             m_CheckRect.SetRectangle(rect);
             m_Rectangle.SetShowRect(rect);
-            m_ShowText.SetShowRect(rect);
+            m_ShowText.SetShowRect(rect);         
         }
-        void Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
+        void SetRect(const D2D1_RECT_F& rect)
         {
-            Draw(d2dWind->GetD2DTargetP(), rect);
+            SetShowRect(rect);
         }
-        void Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
+        D2D1_SIZE_F GetShowSize() const override
         {
-            m_Rectangle.Draw(d2dRenderTarget, rect);
+            auto rect = m_CheckRect.GetRectangle();
+            return D2D1::SizeF(rect.right - rect.left, rect.bottom - rect.top);
+        }
+        D2D1_POINT_2F GetShowPosition() const override
+        {
+            auto rect = m_CheckRect.GetRectangle();
+            return D2D1::Point2F(rect.left, rect.top);
+        }
+ 
+        bool Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
+        {
+            return Draw(d2dWind->GetD2DTargetP(), rect);
+        }
+        bool Draw(ID2D1RenderTarget* d2dRenderTarget, const D2D1_RECT_F& rect)
+        {
+            return m_Rectangle.Draw(d2dRenderTarget, rect)&&
             m_ShowText.Draw(d2dRenderTarget, rect);
         }
-        void Draw(MainWind_D2D* wind)
+        bool Draw(MainWind_D2D* wind)
         {
-            m_Rectangle.Draw(wind);
+            return m_Rectangle.Draw(wind)&&
             m_ShowText.Draw(wind);
         }
-        void Draw(ID2D1RenderTarget* wind)
+        bool Draw(ID2D1RenderTarget* wind)override
         {
-            m_Rectangle.Draw(wind);
+            return m_Rectangle.Draw(wind)&&
             m_ShowText.Draw(wind);
         }
         void SetCallback(WindCallback::ButtonCallback cb)
@@ -276,11 +374,11 @@ namespace WindControl {
         {
             m_ShowText.SetShowText(str);
         }
-        std::wstring& GetShowString()
+        const std::wstring& GetShowString()const
         {
             return m_ShowText.GetShowText();
         }
-        const std::wstring& GetShowString() const
+        std::wstring& GetShowString()
         {
             return m_ShowText.GetShowText();
         }
@@ -308,25 +406,149 @@ namespace WindControl {
         {
             return m_Rectangle.GetColor();
         }
-        D2D1_RECT_F GetShowRect() const
+    };
+    
+    class d2dCheckBox:public d2dControl
+    {
+    public:
+        enum class style
+        {
+            BoxLeft=0x00,
+            CircleBoxLeft=0x08,
+            BoxRight=0x01,
+            CircleBoxRight=0x09,    
+        };
+        bool m_Selected=false;
+    private:
+        WindElements::d2dText m_ShowText;
+        WindElements::d2dClickDetection m_CheckRect;
+        MainWind* m_TargetWind=nullptr;
+        style m_ShowStyle;
+
+        static void callback(MainWind* window, LONG64 data)
+        {
+            d2dCheckBox* aim=(d2dCheckBox*)data;
+            aim->m_Selected=!aim->m_Selected;
+        }
+    public:
+
+        d2dCheckBox(const D2D1_RECT_F& rect=D2D1::RectF(),const std::wstring& Tooltip=L"",bool defaultState=false,style showStyle=style::BoxLeft)
+        : m_Selected(defaultState),m_ShowStyle(showStyle)
+        {
+            m_ShowText.SetShowText(Tooltip);
+            SetShowRect(rect);
+            m_ShowText.SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+            m_ShowText.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+            m_CheckRect.SetUserData((long long)this);
+            m_CheckRect.SetButtonCallback(callback);
+        }
+        void Bind(MainWind* TargetWind)
+        {
+            Unbind();
+            m_TargetWind = TargetWind;
+            TargetWind->AddButten(&m_CheckRect);
+        }
+        void Unbind()
+        {
+            if (m_TargetWind)
+                m_TargetWind->DeleteButten(&m_CheckRect);
+            m_TargetWind = nullptr;
+        }
+        void SetColor(const D2D1_COLOR_F& color,MainWind_D2D* d2dWindow)
+        {
+            m_ShowText.SetColor(color,d2dWindow);
+        }
+        /// @brief 获取选项框所在矩形（打钩的地方）
+        /// @return 
+        D2D1_RECT_F GetBoxRect()const
+        {
+            auto cPos=m_CheckRect.GetPosition();
+            auto tPos=m_ShowText.GetPosition();
+            auto size=m_CheckRect.GetSize();
+            if((((int)m_ShowStyle)&1)==0)return D2D1::RectF(cPos.x+size.y*0.25f,cPos.y+size.y*0.25f,cPos.x+size.y*0.75f,cPos.y+size.y*0.75f);
+            return D2D1::RectF(cPos.x+size.x-size.y*0.75f,cPos.y+size.y*0.25f,cPos.x+size.y*0.75,cPos.y+size.y*0.75);
+        }
+        const WindElements::d2dText& GetTextControl()const 
+        {
+            return m_ShowText;
+        }
+        WindElements::d2dText& GetTextControl()
+        {
+            return m_ShowText;
+        }
+        void SetText(const std::wstring& text)
+        {
+            m_ShowText.SetShowText(text);
+        }
+        void SetShowRect(const D2D1_RECT_F& rect)override
+        {
+            m_CheckRect.SetRectangle(rect);
+            auto size=GetShowSize();
+            switch (m_ShowStyle)
+            {
+            case style::CircleBoxLeft:
+            case style::BoxLeft:
+            {
+                m_ShowText.SetShowRect(D2D1::RectF(rect.left+size.height,rect.top,rect.right,rect.bottom));
+            }
+                break;
+            case style::CircleBoxRight:
+            case style::BoxRight:
+            {
+                m_ShowText.SetShowRect(D2D1::RectF(rect.left,rect.top,rect.right-size.height,rect.bottom));
+            }
+            break;
+            default:
+                m_ShowText.SetShowRect(rect);
+                break;
+            }
+        }
+        const D2D1_RECT_F& GetShowRect()const override
         {
             return m_CheckRect.GetRectangle();
         }
-        D2D1_SIZE_F GetShowSize() const
+        bool GetSelectedStatus()const
         {
-            auto rect = m_CheckRect.GetRectangle();
-            return D2D1::SizeF(rect.right - rect.left, rect.bottom - rect.top);
+            return m_Selected;
         }
-        D2D1_POINT_2F GetShowPosition() const
+        bool Draw(MainWind_D2D* d2dWindow)
         {
-            auto rect = m_CheckRect.GetRectangle();
-            return D2D1::Point2F(rect.left, rect.top);
+            return Draw(d2dWindow->GetD2DTargetP());
+        }
+        bool Draw(ID2D1RenderTarget* window)override
+        {
+            m_ShowText.Draw(window);
+            auto rect=GetBoxRect();
+            auto colorP=m_ShowText.GetColorP();
+            if(!colorP)return false;
+            if((((int)m_ShowStyle)&8)==0)
+            {
+                window->DrawRectangle(rect,colorP,5.f);
+                if(m_Selected)
+                {
+                    window->DrawLine(D2D1::Point2F(rect.left,rect.top),D2D1::Point2F(rect.right,rect.bottom),colorP,5.f);
+                    window->DrawLine(D2D1::Point2F(rect.left,rect.bottom),D2D1::Point2F(rect.right,rect.top),colorP,5.f);
+                }
+            }
+            else
+            {
+                auto size=D2D1::SizeF(rect.right-rect.left,rect.bottom-rect.top);
+                auto ellipse= D2D1::Ellipse(D2D1::Point2F((rect.left+rect.right)*0.5f,(rect.top+rect.bottom)*0.5f),size.width*0.5,size.height*0.5);
+                window->DrawEllipse(ellipse,colorP,5.f);
+                if(m_Selected)
+                {
+                    ellipse.radiusX*=0.5;
+                    ellipse.radiusY*=0.5;
+                    window->FillEllipse(ellipse,colorP);
+                }
+            }
+            return true;
         }
     };
     /// <summary>
     ///  绘制折线函数图像(背景透明)
     /// </summary>
-    class d2dFunctionWind {
+    class d2dFunctionWind:public d2dControl {
         int m_DecimalPlaces;
         float m_Interval;
         float m_Identification;
@@ -434,7 +656,7 @@ namespace WindControl {
             }
         }
         // 设置显示区域
-        void SetShowRect(const D2D1_RECT_F& rect)
+        void SetShowRect(const D2D1_RECT_F& rect)override
         {
             m_ShowRect = rect;
             float xWide = m_ShowRect.right - m_ShowRect.left - m_Interval * 2;
@@ -451,7 +673,10 @@ namespace WindControl {
             }
             UpdateCoordinate();
         }
-
+        const D2D1_RECT_F& GetShowRect()const override
+        {
+            return m_ShowRect;
+        }
         void SetAixsCoordinateX(float minX, float maxX, float tickX, ID2D1RenderTarget* tar)
         {
             m_Coordinate = { minX, maxX, m_Coordinate.right, m_Coordinate.bottom };
@@ -661,14 +886,14 @@ namespace WindControl {
                 return (std::pair<std::vector<float>, std::vector<float>>*)(nullptr);
             return &result->second;
         }
-        void Draw(MainWind_D2D* target)
+        bool Draw(MainWind_D2D* target)
         {
-            Draw(target->GetD2DTargetP());
+            return Draw(target->GetD2DTargetP());
         }
-        void Draw(ID2D1HwndRenderTarget* target)
+        bool Draw(ID2D1RenderTarget* target)override
         {
             if (!m_axisColor)
-                return;
+                return false;
             target->PushAxisAlignedClip(m_ShowRect, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
             target->DrawRectangle(m_ShowRect, m_axisColor);
@@ -715,16 +940,22 @@ namespace WindControl {
                 fl.second.Draw(target);
             }
             target->PopAxisAlignedClip();
+            return true;
         }
     };
     /// <summary>
     /// 虚类，存储需要捕获窗口消息的控件共有的函数，
     /// 不能直接使用
     /// </summary>
-    class d2dFocusControl {
+    class d2dFocusControl :public d2dControl{
     protected:
         bool m_Selected = false;
         WindElements::d2dClickDetection m_Check;
+        
+        MainWind_D2D* m_CurrentWindow = nullptr;
+
+        WindCallback::CharInputCallback_D2D m_DefKeyCallback=nullptr;
+        WindCallback::MouseCallback m_DefMouseCallback = nullptr;
         static void Selected(MainWind* window, LONG64 data)
         {
             d2dFocusControl* control = (d2dFocusControl*)data;
@@ -735,31 +966,67 @@ namespace WindControl {
         virtual void End(MainWind_D2D* window) = 0;
         virtual void Begin(MainWind_D2D* window) = 0;
     public:
-        void Switch(MainWind_D2D* window)
+        d2dFocusControl()
+        {
+            m_Check.SetButtonCallback(Selected);
+            m_Check.SetUserData((long long)this);
+        }
+        virtual ~d2dFocusControl(){};
+        /// @brief 切换焦点状态
+        /// @param window 
+        virtual void Switch(MainWind_D2D* window)
         {
             if (!window)
                 return;
             auto& systemData = window->GetSystemData();
             if (m_Selected) {
+                window->SetKeyCallback(m_DefKeyCallback);
+                window->SetMouseCallback(m_DefMouseCallback);
+                systemData = 0;
                 End(window);
             } else {
                 if (systemData != 0) {
                     d2dFocusControl* control = (d2dFocusControl*)systemData;
                     control->Switch(window);
                 }
+                m_DefKeyCallback = window->GetKeyCallback();
+                m_DefMouseCallback = window->GetMouseCallback();
+                systemData = (long long)this;
                 Begin(window);
             }
             m_Selected = !m_Selected;
             m_Check.Negation(m_Selected);
         }
+        /// <summary>
+        /// 与窗口绑定
+        /// </summary>
+        /// <param name="window"></param>
+        void Bind(MainWind_D2D* window)
+        {
+            window->AddButten(&m_Check);
+            m_CurrentWindow = window;
+        }
+        /// <summary>
+        /// 与窗口解绑
+        /// </summary>
+        void Unbind()
+        {
+            if (m_CurrentWindow) {
+                if (m_Selected) {
+                    Switch(m_CurrentWindow);
+                }
+                m_CurrentWindow->DeleteButten(&m_Check);
+            }
+        }
     };
     /// <summary>
     /// 纯色背景编辑框
     /// </summary>
-    class d2dEdit : d2dFocusControl {
+    class d2dEdit :public d2dFocusControl {
     private:
         bool m_OnlyNumber = false;
         bool m_MultiLine = false;
+        char m_TabLength = 4;
         int m_MaxStrSize = 128;
         int m_CursorPosition;
         D2D1_COLOR_F m_SelectedColor;
@@ -767,15 +1034,12 @@ namespace WindControl {
 
         int m_TextShift = 0;
 
-        MainWind_D2D* m_CurrentWindow = nullptr;
         WindElements::d2dRectangle m_background;
         WindElements::d2dText m_Text;
 
         WindElements::d2dFoldLine m_CursorLine;
 
-        WindCallback::CharInputCallback_D2D m_DefKeyCallback;
         WindCallback::EditControlCallback m_EditCallback = nullptr;
-        WindCallback::MouseCallback m_DefMouseCallback = nullptr;
         /// <summary>
         /// 字符输入回调
         /// </summary>
@@ -855,14 +1119,14 @@ namespace WindControl {
                     CursorMove(key);
                 return;
             }
-            auto& str = m_Text.GetShowText();
+            auto str = m_Text.GetShowText();
             switch (key) {
             case VK_BACK: {
                 if (str.empty() || m_CursorPosition <= 0)
                     break;
                 str.erase(m_CursorPosition - 1, 1);
+                m_Text.SetShowText(str);
                 SetCursorPosition(m_CursorPosition - 1);
-                SetCursor();
                 break;
             }
             case '\r': {
@@ -879,30 +1143,50 @@ namespace WindControl {
                     }
                 }
                 str.insert(m_CursorPosition, 1, key);
+                m_Text.SetShowText(str);
                 SetCursorPosition(m_CursorPosition + 1);
-                SetCursor();
                 if (m_EditCallback) {
                     m_EditCallback(GetBindedWindow(), m_Text.GetShowText(), EditMessage::StringChange);
                 }
                 break;
             }
-            default:
-                if (str.size() >= m_MaxStrSize)
-                    break;
-                if (m_OnlyNumber) {
-                    if (key < '0' || key > '9') {
-                        if (key != '-' && key != '.')
-                            break;
+            default:{
+                    if (str.size() >= m_MaxStrSize)
+                        break;
+                    if (m_OnlyNumber) {
+                        if (key < '0' || key > '9') {
+                            if(key=='-')
+                            {
+                                if(str.size()>0)break;
+                            }
+                            else if(key=='.')
+                            {
+                                if(str.find('.')!=std::string::npos)break;
+                            }
+                            else
+                                break;
+                        }
                     }
+                    if(key==VK_TAB)
+                    {
+                        str.insert(m_CursorPosition, m_TabLength, ' ');
+                        m_Text.SetShowText(str);
+                        SetCursorPosition(m_CursorPosition + m_TabLength);                    
+                    }
+                    else
+                    {                    
+                        str.insert(m_CursorPosition, 1, key);
+                        m_Text.SetShowText(str);
+                        SetCursorPosition(m_CursorPosition + 1);
+                    }
+                    if (m_EditCallback) {
+                        m_EditCallback(GetBindedWindow(), m_Text.GetShowText(), EditMessage::StringChange);
+                    }
+                    break;
                 }
-                str.insert(m_CursorPosition, 1, key);
-                SetCursorPosition(m_CursorPosition + 1);
-                SetCursor();
-                if (m_EditCallback) {
-                    m_EditCallback(GetBindedWindow(), m_Text.GetShowText(), EditMessage::StringChange);
-                }
-                break;
             }
+            
+            SetCursor();
         }
         /// <summary>
         /// 通过按键输入移动光标
@@ -947,20 +1231,7 @@ namespace WindControl {
         }
         void End(MainWind_D2D* window) override
         {
-            auto& systemData = window->GetSystemData();
             m_background.SetColor(m_DefColor, window->GetD2DTargetP());
-            auto* Fptr = CharInput;
-            if (window->GetKeyCallback() != Fptr) {
-                std::cout << "在控件捕获字符输入过程中对字符回调进行了修改\n这可能会导致未知错误！" << std::endl;
-            }
-            window->SetKeyCallback(m_DefKeyCallback);
-            auto* MFptr = MouseHit;
-            if (window->GetMouseCallback() != MFptr) {
-                std::cout << "在控件捕获字符输入过程中对鼠标回调进行了修改\n这可能会导致未知错误！" << std::endl;
-            }
-            window->SetMouseCallback(m_DefMouseCallback);
-
-            systemData = 0;
             m_CursorLine.SetFoldLine({});
             if (m_EditCallback) {
                 m_EditCallback(window, m_Text.GetShowText(), EditMessage::LeaveControl);
@@ -968,13 +1239,9 @@ namespace WindControl {
         }
         void Begin(MainWind_D2D* window) override
         {
-            auto& systemData = window->GetSystemData();
-            m_background.SetColor(m_SelectedColor, window);
-            m_DefKeyCallback = window->GetKeyCallback();
-            m_DefMouseCallback = window->GetMouseCallback();
             window->SetKeyCallback(CharInput);
             window->SetMouseCallback(MouseHit);
-            systemData = (long long)this;
+            m_background.SetColor(m_SelectedColor, window);
             SetCursor();
             if (m_EditCallback) {
                 m_EditCallback(window, m_Text.GetShowText(), EditMessage::EnterControl);
@@ -1017,12 +1284,13 @@ namespace WindControl {
         d2dEdit()
             : m_DefColor(D2D1::ColorF(0.7f, 0.7f, 0.7f))
             , m_SelectedColor(D2D1::ColorF(0.9f, 0.9f, 0.9f))
-            , m_DefKeyCallback(nullptr)
             , m_CursorPosition(0)
         {
-            m_Check.SetButtonCallback(Selected);
-            m_Check.SetUserData((long long)this);
             m_background.FillRect(true);
+        }
+        void SetTabLength(char length)
+        {
+            m_TabLength=length;
         }
         /// <summary>
         /// 是否开启只允许输入数字
@@ -1093,70 +1361,42 @@ namespace WindControl {
         /// 获取当前文本
         /// </summary>
         /// <returns></returns>
-        std::wstring& GetText()
+        const std::wstring& GetText()const
         {
             return m_Text.GetShowText();
         }
-        /// <summary>
-        /// 获取当前文本
-        /// </summary>
-        /// <returns></returns>
-        const std::wstring& GetText() const
+        std::wstring& GetShowString()
         {
             return m_Text.GetShowText();
         }
-        /// <summary>
-        /// 设置显示位置
-        /// </summary>
-        /// <param name="rect"></param>
-        void SetShowRect(const D2D1_RECT_F& rect)
-        {
 
-            UpdateTextPosition(rect);
-            m_background.SetShowRect(rect);
-            m_Check.SetRectangle(rect);
-        }
+
         /// <summary>
-        /// 与窗口绑定
+        /// 绘制
         /// </summary>
         /// <param name="window"></param>
-        void Bind(MainWind_D2D* window)
+        bool Draw(MainWind_D2D& window)
         {
-            window->AddButten(&m_Check);
-            m_CurrentWindow = window;
-        }
-        /// <summary>
-        /// 与窗口解绑
-        /// </summary>
-        void Unbind()
-        {
-            if (m_CurrentWindow) {
-                if (m_Selected) {
-                    Switch(m_CurrentWindow);
-                }
-                m_CurrentWindow->DeleteButten(&m_Check);
-            }
+            return Draw(&window);
         }
         /// <summary>
         /// 绘制
         /// </summary>
         /// <param name="window"></param>
-        void Draw(MainWind_D2D& window)
+        bool Draw(MainWind_D2D* window)
         {
-            Draw(&window);
+            return Draw( window->GetD2DTargetP());
+
         }
-        /// <summary>
-        /// 绘制
-        /// </summary>
-        /// <param name="window"></param>
-        void Draw(MainWind_D2D* window)
+        bool Draw(ID2D1RenderTarget* window)
         {
-            auto* tar = window->GetD2DTargetP();
-            tar->PushAxisAlignedClip(m_background.GetShowRect(), D2D1_ANTIALIAS_MODE_ALIASED);
-            m_background.Draw(window);
-            m_Text.Draw(window);
-            m_CursorLine.Draw(window);
-            tar->PopAxisAlignedClip();
+            bool result;
+            window->PushAxisAlignedClip(m_background.GetShowRect(), D2D1_ANTIALIAS_MODE_ALIASED);
+            result=m_background.Draw(window);
+            result=result&&m_Text.Draw(window);
+            result=result&&m_CursorLine.Draw(window);
+            window->PopAxisAlignedClip();
+            return result;
         }
         /// <summary>
         /// 设置文本颜色
@@ -1231,92 +1471,133 @@ namespace WindControl {
         {
             return m_CurrentWindow;
         }
+        const D2D1_RECT_F& GetShowRect()const override
+        {
+            return m_background.GetShowRect();
+        }
+        /// <summary>
+        /// 设置显示位置
+        /// </summary>
+        /// <param name="rect"></param>
+        void SetShowRect(const D2D1_RECT_F& rect)override
+        {
+            UpdateTextPosition(rect);
+            m_background.SetShowRect(rect);
+            m_Check.SetRectangle(rect);
+            SetCursor();
+        }
+        D2D1_POINT_2F GetShowPosition()const override
+        {
+            return m_background.GetPosition();
+        }
+        D2D1_SIZE_F GetShowSize()const override
+        {
+            return m_background.GetShowSize();
+        }
     };
-
-    class d2dSlider : public d2dFocusControl {
-        
-        float m_Left, m_Right;
-        float m_CurrentNumber = 0;
-        int m_NodeCount;
-
-        bool m_vertical = false;
-        WindElements::d2dGeometry m_slider;
-        WindCallback::MouseCallback m_DefMouseCallback = nullptr;
-        static void MouseCallback(MainWind* window,int x,int y,int v,MouseMessageType type ,KeyMode mode)
-        {
-            d2dSlider* sliderControl = (d2dSlider*)window->GetSystemData();
-            if (!sliderControl)
-                return;
-            sliderControl->Mouse(window, x, y, v, type, mode);
+    
+    class d2dMouseSlider:public d2dFocusControl
+    {
+    private:
+        bool m_Follow=false;
+        bool m_OnlyX=false;
+        bool m_OnlyY=false;
+        Vector::Vec2 m_Shift;
+        WindElements::d2dElements* m_Aim=nullptr;
+        static void MouseCallback(MainWind* window,int x,int y,int v,MouseMessageType type,KeyMode mode)
+        {   
+            auto p=(d2dMouseSlider*)window->GetSystemData();
+            if(!p)return;
+            p->FollowMouse(dynamic_cast<MainWind_D2D*>(window),x,y,type,mode);
         }
-        void Mouse(MainWind* window, int x, int y, int v, MouseMessageType type, KeyMode mode)
+        void FollowMouse(MainWind_D2D* window,int x,int y,MouseMessageType type,KeyMode mode)
         {
-            if (GetKeyState(VK_LBUTTON) < 0) {
-                if (m_Check.CheckClick(x, y)) {
-                    auto rect = m_Check.GetRectangle();
-                    if (m_vertical)
-                    {
-                        m_CurrentNumber = (y - rect.top) * (rect.bottom - rect.top) * (m_Right - m_Left);
-                    } else {
-                        m_CurrentNumber = (x - rect.left) * (rect.right - rect.left) * (m_Right - m_Left);
-                    }
+            if(type==MT_LEFT)
+            {
+                if(mode==KM_UP)Switch(window);
+            }
+            if(m_Follow&&type==MT_MOVE)
+            {
+                auto pos=GetShowPosition();
+                if(m_OnlyX)
+                {
+                    SetShowPosition(x+m_Shift.x,pos.y);
+                }else if(m_OnlyY)
+                {
+                    SetShowPosition(pos.x,y+m_Shift.y);
                 }
+                else
+                    SetShowPosition(x+m_Shift.x,y+m_Shift.y);
             }
         }
-        void End(MainWind_D2D* window)override
+        void End(MainWind_D2D* window) override
         {
-            auto currentMouseCallback = window->GetMouseCallback();
-            if (currentMouseCallback != MouseCallback) {
-                std::cout << "在窗口消息被焦点控件捕获期间修改了消息回调，这可能会导致程序崩溃，请优化逻辑！" << std::endl;
-            }
-            window->SetMouseCallback(m_DefMouseCallback);
+            m_Follow=false;
         }
         void Begin(MainWind_D2D* window) override
         {
-            m_DefMouseCallback = window->GetMouseCallback();
+            m_Follow=true;
+            POINT cursorPos;
+            if(GetCursorPos(&cursorPos))
+            {
+                auto pos=GetShowPosition();
+                ScreenToClient(window->GethWnd(), &cursorPos);
+                m_Shift=Vector::Vec2(pos.x-cursorPos.x,pos.y-cursorPos.y);
+            }
             window->SetMouseCallback(MouseCallback);
         }
     public:
-        d2dSlider(int NodeCount = 10, float LeftNumber = 0, float rightNumber = 1)
-            : m_Left(LeftNumber)
-            , m_Right(rightNumber)
-            , m_NodeCount(NodeCount)
-            , m_CurrentNumber(LeftNumber)
+        /// @brief 
+        /// @param pattern 绘制
+        /// @param EffectiveArea 有效的作用区域，默认为绘制样式的区域，如果都没有则为无有效区域
+        d2dMouseSlider(WindElements::d2dElements* pattern=nullptr,const D2D1_RECT_F* EffectiveArea=nullptr)
+        :m_Aim(pattern)
         {
+            if(EffectiveArea==nullptr)
+            {
+                if(pattern!=nullptr)
+                    m_Check.SetRectangle(pattern->GetShowRect());
+            }
         }
-        void SetNodeCount(int count)
+        void SetOnlyMoveInX(bool x)
         {
-            m_NodeCount = count;
+            m_OnlyX=x;
+            m_OnlyY=false;
         }
-        void SetNumber(float LeftNumber, float rightNumber)
+        void SetOnlyMoveInY(bool y)
         {
-            m_Left = LeftNumber;
-            m_Right = rightNumber;
+            m_OnlyX=false;
+            m_OnlyY=y;
         }
-        /// <summary>
-        /// 绘制
-        /// </summary>
-        /// <param name="window"></param>
-        void Draw(MainWind_D2D& window)
+        /// @brief 返回的是检测区域的矩形
+        /// @return 
+        const D2D1_RECT_F& GetShowRect()const override
         {
-            Draw(&window);
+            return m_Check.GetRectangle();
         }
-        /// <summary>
-        /// 绘制
-        /// </summary>
-        /// <param name="window"></param>
-        void Draw(MainWind_D2D* window)
+        /// @brief 会同时作用与绘制目标与检测区域
+        /// @param  
+        void SetShowRect(const D2D1_RECT_F& rect)override
         {
-            auto Pos = m_Check.GetRectangle();
-            window->DrawLine(Pos.left, Pos.top, Pos.left, Pos.bottom);
-            window->DrawLine(Pos.right, Pos.top, Pos.right, Pos.bottom);
-            m_slider.Draw(window);
+            if(m_Aim)m_Aim->SetShowRect(rect);
+            m_Check.SetRectangle(rect);
+        }
+        void SetShowPattern(WindElements::d2dElements* pattern)
+        {
+            m_Aim=pattern;
+        }
+        bool Draw(ID2D1RenderTarget* Target)override
+        {
+            if(!m_Aim||!Target)return false;
+            return m_Aim->Draw(Target);
         }
     };
+
+    
     /// <summary>
     /// 存储一些动画控件共有的函数，不能直接使用
     /// </summary>
-    class d2dPictureAnimationBase {
+    class d2dPictureAnimationBase:public d2dControl {
     protected:
         D2D1_RECT_F m_ShowRect;
         float m_CurrentTime;
@@ -1333,55 +1614,13 @@ namespace WindControl {
             , m_ShowRect(D2D1::RectF())
         {
         }
-        void SetShowPosition(const Vector::Vec2& pos)
-        {
-            float wDifference = pos.x - m_ShowRect.left;
-            float hDifference = pos.y - m_ShowRect.top;
-            m_ShowRect.left += wDifference;
-            m_ShowRect.top += hDifference;
-            m_ShowRect.right += wDifference;
-            m_ShowRect.bottom += hDifference;
-        }
-        void SetShowWide(const Vector::Vec2& wide)
-        {
-            m_ShowRect.bottom = wide.y + m_ShowRect.top;
-            m_ShowRect.right = wide.x + m_ShowRect.left;
-        }
-        void SetShowRect(const D2D1_RECT_F& rect)
+        void SetShowRect(const D2D1_RECT_F& rect)override
         {
             m_ShowRect = rect;
         }
-        /// <summary>
-        /// 显示区域的x，y
-        /// </summary>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        void SetShowPosition(float x, float y)
-        {
-            float wDifference = x - m_ShowRect.left;
-            float hDifference = y - m_ShowRect.top;
-            m_ShowRect.left += wDifference;
-            m_ShowRect.top += hDifference;
-            m_ShowRect.right += wDifference;
-            m_ShowRect.bottom += hDifference;
-        }
-        /// <summary>
-        /// 显示区域的宽度与高度
-        /// </summary>
-        /// <param name="width"></param>
-        /// <param name="height"></param>
-        void SetShowWide(float width, float height)
-        {
-            m_ShowRect.bottom = height + m_ShowRect.top;
-            m_ShowRect.right = width + m_ShowRect.left;
-        }
-        D2D1_RECT_F GetShowRect() const
+        const D2D1_RECT_F& GetShowRect() const override
         {
             return m_ShowRect;
-        }
-        D2D1_SIZE_F GetShowSize() const
-        {
-            return { m_ShowRect.right - m_ShowRect.left, m_ShowRect.bottom - m_ShowRect.top };
         }
 
         void SetOpacity(float Opacity)
@@ -1395,9 +1634,14 @@ namespace WindControl {
         {
             m_SwitchTime = second * 1000;
         }
+        bool Draw(ID2D1RenderTarget* window)override
+        {
+            MessageBox(NULL,L"动画控件必须使用MainWind_D2D绘制",L"错误使用",MB_OK);
+            return false;
+        }
+        virtual bool Draw(MainWind_D2D* window)=0;
         virtual void ToPicture(int index, bool ContinueSwitch = true) = 0;
         virtual void ShowNext() = 0;
-        virtual void Draw(MainWind_D2D* tar) = 0;
     };
     /// <summary>
     /// 实现对单个图片的关键帧动画播放。
@@ -1525,10 +1769,10 @@ namespace WindControl {
                 m_CurrentPicture = 0;
             m_CurrentPosition = m_Crops[m_CurrentPicture];
         }
-        void Draw(MainWind_D2D* tar) override
+        bool Draw(MainWind_D2D* tar)
         {
             if (!tar || !m_DataPicture)
-                return;
+                return false;
             if (m_SwitchTime > 0) {
                 m_CurrentTime += tar->GetPaintIntervalTime();
                 while (m_CurrentTime > m_SwitchTime) {
@@ -1541,7 +1785,7 @@ namespace WindControl {
             m_DataPicture->SetCrop({ m_CurrentPosition.x, m_CurrentPosition.y, pos2.x, pos2.y });
             m_DataPicture->SetShowRect(m_ShowRect);
             m_DataPicture->SetOpacity(m_Opacity);
-            m_DataPicture->Draw(tar);
+            return m_DataPicture->Draw(tar);
         }
     };
     /// <summary>
@@ -1594,7 +1838,7 @@ namespace WindControl {
                 m_CurrentPicture = 0;
             }
         }
-        void Draw(MainWind_D2D* tar) override
+        bool Draw(MainWind_D2D* tar)
         {
             if (m_SwitchTime > 0) {
                 m_CurrentTime += tar->GetPaintIntervalTime();
@@ -1605,11 +1849,11 @@ namespace WindControl {
             }
             auto picture = GetPicture(m_CurrentPicture);
             if (!picture || !tar) {
-                return;
+                return false;
             }
             picture->SetShowRect(m_ShowRect);
             picture->SetOpacity(m_Opacity);
-            picture->Draw(tar);
+            return picture->Draw(tar);
         }
     };
 

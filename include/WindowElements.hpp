@@ -25,7 +25,7 @@ namespace WindElements {
         /// 获取当前显示的位置所在矩形
         /// </summary>
         /// <returns></returns>
-        D2D1_RECT_F GetShowRect() const
+        const D2D1_RECT_F& GetShowRect() const
         {
             return m_ShowRectangle;
         }
@@ -383,15 +383,16 @@ namespace WindElements {
     class d2dText : public d2dElements {
     private:
         std::wstring m_ShowText;
-
-        IDWriteTextFormat* m_TextFormat;
-        ID2D1SolidColorBrush* m_Color;
+        IDWriteTextLayout* m_WriteTextLayout=nullptr;
+        IDWriteTextFormat* m_TextFormat=nullptr;
+        ID2D1SolidColorBrush* m_Color=nullptr;
 
     public:
         d2dText(const std::wstring& showString = L"", float x = 0, float y = 0, float w = 128, float h = 32)
             : m_ShowText(showString)
             , m_Color(nullptr)
         {
+            
             m_TextFormat = nullptr;
             m_ShowRectangle = (D2D1::RectF(x, y, x + w, y + h));
             SetTextFormat(L"仿宋", NULL,
@@ -402,7 +403,15 @@ namespace WindElements {
         }
         ~d2dText()
         {
+            SafeRelease(&m_WriteTextLayout);
             SafeRelease(&m_TextFormat);
+            SafeRelease(&m_Color);
+        }
+        
+        bool SetDrawingEffect(IUnknown* effect,DWRITE_TEXT_RANGE range)
+        {
+            if(!m_WriteTextLayout)return false;
+            return m_WriteTextLayout->SetDrawingEffect(effect,range)>0;
         }
         /// <summary>
         /// 设置文本颜色
@@ -439,6 +448,10 @@ namespace WindElements {
                 return m_Color->GetColor();
             return D2D1::ColorF(0);
         }
+        ID2D1SolidColorBrush* GetColorP()const
+        {
+            return m_Color;
+        }
         /// <summary>
         /// 设置不透明度
         /// </summary>
@@ -462,9 +475,35 @@ namespace WindElements {
         /// 设置显示的文本
         /// </summary>
         /// <param name="showString"></param>
-        void SetShowText(const std::wstring& showString)
+        void SetShowText(const std::wstring& showString,bool createTextLayout=false)
         {
             m_ShowText = showString;
+            if(createTextLayout)
+            CreateWriteTextLayout();
+        }
+        /// @brief 依据当前数据生成WriteTextLayout
+        /// @return 
+        IDWriteTextLayout* CreateWriteTextLayout()
+        {
+            SafeRelease(&m_WriteTextLayout);
+            IDWriteFactory* writeFactory = nullptr;
+            HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&writeFactory));
+            if (FAILED(hr)) {
+                return nullptr;
+            }
+            hr = writeFactory->CreateTextLayout(
+                m_ShowText.c_str(),
+                (UINT32)m_ShowText.size(),
+                m_TextFormat,
+                m_ShowRectangle.right - m_ShowRectangle.left,
+                m_ShowRectangle.bottom - m_ShowRectangle.top,
+                &m_WriteTextLayout);
+            if (FAILED(hr)) {
+                SafeRelease(&writeFactory);
+                return nullptr;
+            }
+            SafeRelease(&writeFactory);
+            return m_WriteTextLayout;
         }
         /// <summary>
         /// 获取当前显示的文本
@@ -474,12 +513,9 @@ namespace WindElements {
         {
             return m_ShowText;
         }
-        /// <summary>
-        /// 获取当前显示文本的引用
-        /// </summary>
-        /// <returns></returns>
         std::wstring& GetShowText()
         {
+            SafeRelease(&m_WriteTextLayout);
             return m_ShowText;
         }
         /// <summary>
@@ -587,83 +623,65 @@ namespace WindElements {
         /// 获取指定位置的字符索引
         /// </summary>
         /// <param name="pos">相对位置</param>
-        /// <returns></returns>
-        int GetHitPositionCharPosition(const Vector::Vec2& pos) const
+        /// <returns>返回对应字符，-1表示读取错误，-2表示WriteTextLayout未创建</returns>
+        int GetHitPositionCharPositionConst(const Vector::Vec2& pos) const
         {
-            IDWriteFactory* writeFactory = nullptr;
-            HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&writeFactory));
-            if (FAILED(hr)) {
-                return -1;
-            }
-            IDWriteTextLayout* dwriteTextLayout;
-            hr = writeFactory->CreateTextLayout(
-                m_ShowText.c_str(),
-                (UINT32)m_ShowText.size(),
-                m_TextFormat,
-                m_ShowRectangle.right - m_ShowRectangle.left,
-                m_ShowRectangle.bottom - m_ShowRectangle.top,
-                &dwriteTextLayout);
-            if (FAILED(hr)) {
-                SafeRelease(&writeFactory);
-                return -1;
+            if(!m_WriteTextLayout)
+            {
+                return -2;
             }
             DWRITE_HIT_TEST_METRICS hitTestMetrics;
             BOOL isTrailingHit, isInside;
-            hr = dwriteTextLayout->HitTestPoint(
+            HRESULT hr = m_WriteTextLayout->HitTestPoint(
                 pos.x,
                 pos.y,
                 &isTrailingHit,
                 &isInside,
                 &hitTestMetrics);
             if (FAILED(hr)) {
-                SafeRelease(&dwriteTextLayout);
-                SafeRelease(&writeFactory);
                 return -1;
             }
-            SafeRelease(&dwriteTextLayout);
-            SafeRelease(&writeFactory);
             return hitTestMetrics.textPosition;
+        }
+        int GetHitPositionCharPosition(const Vector::Vec2& pos)
+        {
+            if(!m_WriteTextLayout)
+            {
+                CreateWriteTextLayout();
+            }
+            return GetHitPositionCharPositionConst(pos);
         }
         /// <summary>
         /// 获取指定字符索引处的位置
         /// </summary>
         /// <param name="CharIndex">第几个字符</param>
         /// <returns></returns>
-        D2D1_POINT_2F GetStringCharPosition(int CharIndex) const
+        D2D1_POINT_2F GetStringCharPositionConst(int CharIndex) const
         {
-            IDWriteFactory* writeFactory = nullptr;
-            HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&writeFactory));
-            if (FAILED(hr)) {
-                return { -1, -1 };
-            }
-            IDWriteTextLayout* dwriteTextLayout;
-            hr = writeFactory->CreateTextLayout(
-                m_ShowText.c_str(),
-                (UINT32)m_ShowText.size(),
-                m_TextFormat,
-                m_ShowRectangle.right - m_ShowRectangle.left,
-                m_ShowRectangle.bottom - m_ShowRectangle.top,
-                &dwriteTextLayout);
-            if (FAILED(hr)) {
-                SafeRelease(&writeFactory);
+            HRESULT hr;
+            if (!m_WriteTextLayout) {
                 return { -1, -1 };
             }
             DWRITE_HIT_TEST_METRICS hitTestMetrics;
             FLOAT charX, charY;
-            hr = dwriteTextLayout->HitTestTextPosition(
+            hr = m_WriteTextLayout->HitTestTextPosition(
                 CharIndex,
                 FALSE,
                 &charX,
                 &charY,
                 &hitTestMetrics);
             if (FAILED(hr)) {
-                SafeRelease(&dwriteTextLayout);
-                SafeRelease(&writeFactory);
                 return { -1, -1 };
             }
-            SafeRelease(&dwriteTextLayout);
-            SafeRelease(&writeFactory);
             return { charX, charY };
+        }
+        D2D1_POINT_2F GetStringCharPosition(int CharIndex)
+        {
+            if(!m_WriteTextLayout)
+            {
+                CreateWriteTextLayout();
+            }
+            return GetStringCharPositionConst(CharIndex);
         }
         bool Draw(MainWind_D2D* d2dWind, const D2D1_RECT_F& rect)
         {
@@ -691,6 +709,20 @@ namespace WindElements {
             d2dRenderTarget->SetTransform(m_Rotation * originalTransform);
             d2dRenderTarget->DrawText(m_ShowText.c_str(), (UINT32)m_ShowText.size(), m_TextFormat, &m_ShowRectangle, m_Color);
             d2dRenderTarget->SetTransform(originalTransform);
+            return true;
+        }
+        /// @brief 通过WriteTextLayout绘制，支持更多文本异色样式，如果WriteTextLayout不存在，则使用默认绘制
+        /// @param d2dWindow 
+        /// @return 
+        bool DrawEx(MainWind_D2D* d2dWindow)
+        {
+            return DrawEx(d2dWindow->GetD2DTargetP());
+        }
+        bool DrawEx(ID2D1RenderTarget* d2dRenderTarget)
+        {
+            if(!m_WriteTextLayout)return Draw(d2dRenderTarget);
+            if(!m_Color)return false;
+            d2dRenderTarget->DrawTextLayout(GetPosition(),m_WriteTextLayout,m_Color);
             return true;
         }
     };
